@@ -108,7 +108,7 @@ describe('the New Relic agent API', function() {
       const metadata = api.getTraceMetadata()
       expect(metadata).to.be.an('object')
       expect(metadata.traceId).to.be.a('string')
-      expect(metadata.traceId).to.equal(txn.id)
+      expect(metadata.traceId).to.equal(txn.traceId)
       expect(metadata.spanId).to.be.a('string')
       expect(metadata.spanId).to.equal(txn.agent.tracer.getSegment().id)
       done()
@@ -137,7 +137,7 @@ describe('the New Relic agent API', function() {
         const metadata = api.getTraceMetadata()
         expect(metadata).to.be.an('object')
         expect(metadata.traceId).to.be.a('string')
-        expect(metadata.traceId).to.equal(txn.id)
+        expect(metadata.traceId).to.equal(txn.traceId)
 
         expect(metadata).to.not.have.property('spanId')
         done()
@@ -151,8 +151,13 @@ describe('the New Relic agent API', function() {
       let handle = api.getTransaction()
       expect(handle.end).to.be.a('function')
       expect(handle.ignore).to.be.a('function')
+
+      // Deprecated.
       expect(handle.createDistributedTracePayload).to.be.a('function')
       expect(handle.acceptDistributedTracePayload).to.be.a('function')
+
+      expect(handle.acceptDistributedTraceHeaders).to.be.a('function')
+      expect(handle.insertDistributedTraceHeaders).to.be.a('function')
       expect(handle.isSampled).to.be.a('function')
 
       let payload = handle.createDistributedTracePayload()

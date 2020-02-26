@@ -261,6 +261,7 @@ describe('built-in http module instrumentation', function() {
       var fetchedStatusCode = null
       var fetchedBody = null
       var refererUrl = 'https://www.google.com/search/cats?scrubbed=false'
+      const userAgent = 'Palm680/RC1'
 
       beforeEach(function(done) {
         transaction = null
@@ -270,7 +271,8 @@ describe('built-in http module instrumentation', function() {
           path: '/path',
           method: 'GET',
           headers: {
-            referer: refererUrl
+            referer: refererUrl,
+            'User-Agent': userAgent
           }
         }, function(err, statusCode, body) {
           fetchedStatusCode = statusCode
@@ -297,6 +299,21 @@ describe('built-in http module instrumentation', function() {
       it('should include a stringified response status code', function() {
         var attributes = transaction.trace.attributes.get(DESTINATIONS.TRANS_TRACE)
         expect(attributes['response.status']).to.equal('200')
+      })
+
+      it('should include http.statusCode attribute', () => {
+        const attributes = transaction.trace.attributes.get(DESTINATIONS.TRANS_TRACE)
+        expect(attributes['http.statusCode']).to.equal('200')
+      })
+
+      it('should include http.statusText attribute', () => {
+        const attributes = transaction.trace.attributes.get(DESTINATIONS.TRANS_TRACE)
+        expect(attributes['http.statusText']).to.equal('OK')
+      })
+
+      it('should include request.headers.userAgent attribute', () => {
+        const attributes = transaction.trace.attributes.get(DESTINATIONS.TRANS_TRACE)
+        expect(attributes['request.headers.userAgent']).to.equal(userAgent)
       })
 
       it('should record unscoped path stats after a normal request', function() {
@@ -670,7 +687,6 @@ describe('built-in http module instrumentation', function() {
             enabled: true
           },
           feature_flag: {
-            dt_format_w3c: true
           }
         })
       })
@@ -685,8 +701,68 @@ describe('built-in http module instrumentation', function() {
 
         var server = http.createServer(function(req, res) {
           const txn = agent.getTransaction()
-          expect(txn.traceContext.traceparent).to.equal(traceparent)
-          expect(txn.traceContext._traceStateIntrinsics.priority).to.equal(priority)
+
+          const outboundHeaders = createHeadersAndInsertTrace(txn)
+
+          expect(outboundHeaders.traceparent.startsWith('00-4bf92f3577b')).to.equal(true)
+          expect(txn.priority).to.equal(priority)
+          res.writeHead(200, {'Content-Length': 3})
+          res.end('hi!')
+        })
+
+        var headers = {
+          traceparent: traceparent,
+          tracestate: tracestate
+        }
+
+        server.listen(4123, function() {
+          http.get({host: 'localhost', port: 4123, headers: headers}, function(res) {
+            res.resume()
+            server.close(done)
+          })
+        })
+      })
+
+      it('should set traceparent header correctly tracestate missing', function(done) {
+        const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+
+        http = require('http')
+        agent.config.trusted_account_key = 190
+
+        var server = http.createServer(function(req, res) {
+          const txn = agent.getTransaction()
+
+          const outboundHeaders = createHeadersAndInsertTrace(txn)
+
+          expect(outboundHeaders.traceparent.startsWith('00-4bf92f3577b')).to.equal(true)
+          res.writeHead(200, {'Content-Length': 3})
+          res.end('hi!')
+        })
+
+        var headers = {
+          traceparent: traceparent
+        }
+
+        server.listen(4123, function() {
+          http.get({host: 'localhost', port: 4123, headers: headers}, function(res) {
+            res.resume()
+            server.close(done)
+          })
+        })
+      })
+
+      it('should set traceparent header correctly tracestate empty string', function(done) {
+        const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+
+        const tracestate = ''
+        http = require('http')
+        agent.config.trusted_account_key = 190
+
+        var server = http.createServer(function(req, res) {
+          const txn = agent.getTransaction()
+          const outboundHeaders = createHeadersAndInsertTrace(txn)
+          expect(outboundHeaders.traceparent.startsWith('00-4bf92f3577b')).to.equal(true)
+
           res.writeHead(200, {'Content-Length': 3})
           res.end('hi!')
         })
@@ -928,3 +1004,10 @@ describe('built-in http module instrumentation', function() {
     }
   })
 })
+
+function createHeadersAndInsertTrace(transaction) {
+  const headers = {}
+  transaction.insertDistributedTraceHeaders(headers)
+
+  return headers
+}

@@ -724,7 +724,7 @@ describe('Transaction', function() {
       expect(transaction.priority.toString().length).to.be.at.most(8)
 
       expect(attributes).to.have.property('guid', transaction.id)
-      expect(attributes).to.have.property('traceId', transaction.id)
+      expect(attributes).to.have.property('traceId', transaction.traceId)
       expect(attributes).to.have.property('priority', transaction.priority)
       expect(attributes).to.have.property('sampled', true)
     })
@@ -1139,22 +1139,27 @@ describe('Transaction', function() {
     })
   })
 
-  describe('acceptTraceContextPayload', () => {
+  describe('acceptDistributedTraceHeaders', () => {
     it('should accept a valid trace context traceparent header', () => {
       agent.config.distributed_tracing.enabled = true
       agent.config.trusted_account_key = '1'
       agent.config.span_events.enabled = true
-      agent.config.feature_flag.dt_format_w3c = true
 
       const goodParent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+
+      const headers = {
+        traceparent: goodParent
+      }
 
       helper.runInTransaction(agent, function(txn) {
         var childSegment = txn.trace.add('child')
         childSegment.start()
 
-        txn.traceContext.acceptTraceContextPayload(goodParent, 'stuff')
+        txn.acceptDistributedTraceHeaders('HTTP', headers)
 
-        expect(txn.traceContext.traceparent).to.equal(goodParent)
+        expect(txn.traceId).to.equal('4bf92f3577b34da6a3ce929d0e0e4736')
+        expect(txn.parentSpanId).to.equal('00f067aa0ba902b7')
+
         txn.end()
       })
     })
@@ -1163,36 +1168,224 @@ describe('Transaction', function() {
       agent.config.distributed_tracing.enabled = true
       agent.config.trusted_account_key = '1'
       agent.config.span_events.enabled = true
-      agent.config.feature_flag.dt_format_w3c = true
 
       helper.runInTransaction(agent, function(txn) {
         var childSegment = txn.trace.add('child')
         childSegment.start()
 
-        const orig_traceparent = txn.traceContext.traceparent
+        const originalHeaders = createHeadersAndInsertTrace(txn)
+
+        const orig_traceparent = originalHeaders.traceparent
         const traceparent = 'asdlkfjasdl;fkja'
         const tracestate = 'stuff'
 
-        txn.traceContext.acceptTraceContextPayload(traceparent, tracestate)
+        const headers = {
+          traceparent,
+          tracestate
+        }
 
-        expect(txn.traceContext.traceparent).to.equal(orig_traceparent)
+        txn.acceptDistributedTraceHeaders('HTTP', headers)
+
+        const secondHeaders = createHeadersAndInsertTrace(txn)
+
+        expect(secondHeaders.traceparent).to.equal(orig_traceparent)
+        txn.end()
+      })
+    })
+
+    it('should use newrelic format when no traceparent', () => {
+      const trustedAccountKey = '123'
+
+      agent.config.distributed_tracing.enabled = true
+      agent.config.trusted_account_key = trustedAccountKey
+      agent.config.span_events.enabled = true
+
+      const incomingTraceId = '6e2fea0b173fdad0'
+      const expectedTraceId = '0000000000000000' + incomingTraceId
+
+      const newrelicDtData = {
+        v:[0,1],
+        d:{
+          ty: 'Mobile',
+          ac: trustedAccountKey,
+          ap: '51424',
+          id: '5f474d64b9cc9b2a',
+          tr: incomingTraceId,
+          pr: 0.1234,
+          sa: true,
+          ti: '1482959525577',
+          tx: '27856f70d3d314b7'
+        }
+      }
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        const headers = {
+          newrelic: JSON.stringify(newrelicDtData)
+        }
+
+        txn.acceptDistributedTraceHeaders('HTTP', headers)
+
+        expect(txn.isDistributedTrace).to.be.true
+        expect(txn.acceptedDistributedTrace).to.be.true
+
+        const outboundHeaders = createHeadersAndInsertTrace(txn)
+        const splitData = outboundHeaders.traceparent.split('-')
+        const [, traceId] = splitData
+
+        expect(traceId).to.equal(expectedTraceId)
+        txn.end()
+      })
+    })
+
+    it('should only accept the first tracecontext', () => {
+      agent.config.distributed_tracing.enabled = true
+      agent.config.trusted_account_key = '1'
+      agent.config.span_events.enabled = true
+
+      const expectedTraceId = 'da8bc8cc6d062849b0efcf3c169afb5a'
+      const expectedParentSpanId = '7d3efb1b173fecfa'
+      const expectedAppId = '2827902'
+
+      const firstTraceContext = {
+        traceparent: `00-${expectedTraceId}-${expectedParentSpanId}-01`,
+        tracestate:
+          `1@nr=0-0-1-${expectedAppId}-7d3efb1b173fecfa-e8b91a159289ff74-1-1.23456-1518469636035`
+      }
+
+      const secondTraceContext = {
+        traceparent: '00-37375fc353f345b5801b166e31b76136-b4a07f08064ee8f9-00',
+        tracestate: '1@nr=0-0-1-3837903-b4a07f08064ee8f9-e8b91a159289ff74-0-0.123456-1518469636035'
+      }
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        txn.acceptDistributedTraceHeaders('HTTP', firstTraceContext)
+        txn.acceptDistributedTraceHeaders('HTTP', secondTraceContext)
+
+        expect(txn.traceId).to.equal(expectedTraceId)
+        expect(txn.parentSpanId).to.equal(expectedParentSpanId)
+        expect(txn.parentApp).to.equal('2827902')
+
+        txn.end()
+      })
+    })
+
+    it('should not accept tracecontext after sending a trace', () => {
+      agent.config.distributed_tracing.enabled = true
+      agent.config.trusted_account_key = '1'
+      agent.config.span_events.enabled = true
+
+      const unexpectedTraceId = 'da8bc8cc6d062849b0efcf3c169afb5a'
+      const unexpectedParentSpanId = '7d3efb1b173fecfa'
+      const unexpectedAppId = '2827902'
+
+      const firstTraceContext = {
+        traceparent: `00-${unexpectedTraceId}-${unexpectedParentSpanId}-01`,
+        tracestate:
+          `1@nr=0-0-1-${unexpectedAppId}-7d3efb1b173fecfa-e8b91a159289ff74-1-1.23456-1518469636035`
+      }
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        const outboundHeaders = {}
+        txn.insertDistributedTraceHeaders(outboundHeaders)
+
+        txn.acceptDistributedTraceHeaders('HTTP', firstTraceContext)
+
+        expect(txn.traceId).to.not.equal(unexpectedTraceId)
+        expect(txn.parentSpanId).to.not.equal(unexpectedParentSpanId)
+        expect(txn.parentApp).to.not.equal('2827902')
+
+        const traceparentParts = outboundHeaders.traceparent.split('-')
+        const [, expectedTraceId] = traceparentParts
+
+        expect(txn.traceId).to.equal(expectedTraceId)
+
         txn.end()
       })
     })
   })
 
-  describe('createTraceParentHeader', () => {
+  describe('insertDistributedTraceHeaders', () => {
+    it('should lowercase traceId for tracecontext when recieved upper from newrelic format', () => {
+      const trustedAccountKey = '123'
+
+      agent.config.account_id = 'AccountId1'
+      agent.config.primary_application_id = 'Application1'
+      agent.config.distributed_tracing.enabled = true
+      agent.config.trusted_account_key = trustedAccountKey
+      agent.config.span_events.enabled = true
+
+      const incomingTraceId = '6E2fEA0B173FDAD0'
+      const expectedTraceContextTraceId = '0000000000000000' + incomingTraceId.toLowerCase()
+
+      const newrelicDtData = {
+        v:[0,1],
+        d:{
+          ty: 'Mobile',
+          ac: trustedAccountKey,
+          ap: '51424',
+          id: '5f474d64b9cc9b2a',
+          tr: incomingTraceId,
+          pr: 0.1234,
+          sa: true,
+          ti: '1482959525577',
+          tx: '27856f70d3d314b7'
+        }
+      }
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        const headers = {
+          newrelic: JSON.stringify(newrelicDtData)
+        }
+
+        txn.acceptDistributedTraceHeaders('HTTP', headers)
+
+        expect(txn.isDistributedTrace).to.be.true
+        expect(txn.acceptedDistributedTrace).to.be.true
+
+        const insertedHeaders = {}
+        txn.insertDistributedTraceHeaders(insertedHeaders)
+
+        const splitData = insertedHeaders.traceparent.split('-')
+        const [, traceId] = splitData
+
+        expect(traceId).to.equal(expectedTraceContextTraceId)
+
+        const rawPayload = Buffer.from(insertedHeaders.newrelic, 'base64').toString('utf-8')
+        const payload = JSON.parse(rawPayload)
+
+        // newrelic header should have traceId untouched
+        expect(payload.d.tr).to.equal(incomingTraceId)
+
+        // traceId used for metrics shoudl go untouched
+        expect(txn.traceId).to.equal(incomingTraceId)
+
+        txn.end()
+      })
+    })
+
     it('should generate a valid new trace context traceparent header', () => {
       agent.config.distributed_tracing.enabled = true
       agent.config.trusted_account_key = '1'
       agent.config.span_events.enabled = true
-      agent.config.feature_flag.dt_format_w3c
 
       const tx = new Transaction(agent)
 
       agent.tracer.segment = tx.trace.root
 
-      const traceparent = tx.traceContext.traceparent
+      const outboundHeaders = createHeadersAndInsertTrace(tx)
+      const traceparent = outboundHeaders.traceparent
       const traceparentParts = traceparent.split('-')
 
       const lowercaseHexRegex = /^[a-f0-9]+/
@@ -1201,7 +1394,7 @@ describe('Transaction', function() {
       expect(traceparentParts[0], 'version').to.equal('00')
       expect(traceparentParts[1].length, 'traceId').to.equal(32)
       expect(traceparentParts[2].length, 'parentId').to.equal(16)
-      expect(traceparentParts[3], 'flags').to.equal('00')
+      expect(traceparentParts[3], 'flags').to.equal('01')
 
       expect(traceparentParts[1], 'traceId is lowercase hex').to.match(lowercaseHexRegex)
       expect(traceparentParts[2], 'parentId is lowercase hex').to.match(lowercaseHexRegex)
@@ -1219,7 +1412,8 @@ describe('Transaction', function() {
 
       agent.tracer.segment = tx.trace.root
 
-      const traceparent = tx.traceContext.traceparent
+      const outboundHeaders = createHeadersAndInsertTrace(tx)
+      const traceparent = outboundHeaders.traceparent
       const traceparentParts = traceparent.split('-')
 
       expect(traceparentParts[2].length, 'parentId').to.equal(16)
@@ -1232,12 +1426,14 @@ describe('Transaction', function() {
       agent.config.trusted_account_key = '1'
       agent.config.span_events.enabled = true
 
+
       const tx = new Transaction(agent)
 
       agent.tracer.segment = tx.trace.root
       tx.sampled = true
 
-      const traceparent = tx.traceContext.traceparent
+      const outboundHeaders = createHeadersAndInsertTrace(tx)
+      const traceparent = outboundHeaders.traceparent
       const traceparentParts = traceparent.split('-')
 
       expect(traceparentParts[3], 'flags').to.equal('01')
@@ -1249,21 +1445,127 @@ describe('Transaction', function() {
       agent.config.distributed_tracing.enabled = true
       agent.config.trusted_account_key = '1'
       agent.config.span_events.enabled = true
-      agent.config.feature_flag.dt_format_w3c = true
 
       const tx = new Transaction(agent)
       const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
       const tracestate = '323322332234234234423'
 
-      tx.traceContext.acceptTraceContextPayload(traceparent, tracestate)
+      tx.acceptTraceContextPayload(traceparent, tracestate)
 
       agent.tracer.segment = tx.trace.root
 
-      const traceparentParts = traceparent.split('-')
+      const outboundHeaders = createHeadersAndInsertTrace(tx)
+      const traceparentParts = outboundHeaders.traceparent.split('-')
 
       expect(traceparentParts[1], 'traceId').to.equal('4bf92f3577b34da6a3ce929d0e0e4736')
 
       agent.tracer.segment = null
+    })
+  })
+
+  describe('acceptTraceContextPayload', () => {
+    it('should accept a valid trace context traceparent header', () => {
+      agent.config.distributed_tracing.enabled = true
+      agent.config.trusted_account_key = '1'
+      agent.config.span_events.enabled = true
+
+      const goodParent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        txn.acceptTraceContextPayload(goodParent, 'stuff')
+
+        expect(txn.traceId).to.equal('4bf92f3577b34da6a3ce929d0e0e4736')
+        expect(txn.parentSpanId).to.equal('00f067aa0ba902b7')
+
+        txn.end()
+      })
+    })
+
+    it('should not accept invalid trace context traceparent header', () => {
+      agent.config.distributed_tracing.enabled = true
+      agent.config.trusted_account_key = '1'
+      agent.config.span_events.enabled = true
+
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        const originalHeaders = createHeadersAndInsertTrace(txn)
+        const orig_traceparent = originalHeaders.traceparent
+        const traceparent = 'asdlkfjasdl;fkja'
+        const tracestate = 'stuff'
+
+        txn.acceptTraceContextPayload(traceparent, tracestate)
+
+        const secondHeaders = createHeadersAndInsertTrace(txn)
+
+        expect(secondHeaders.traceparent).to.equal(orig_traceparent)
+        txn.end()
+      })
+    })
+
+    it('should not accept tracestate when trusted_account_key missing', () => {
+      agent.config.trusted_account_key = null
+      agent.config.distributed_tracing.enabled = true
+      agent.config.span_events.enabled = true
+
+      const incomingTraceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+      // When two bugs combine, we might accept a tracestate we shouldn't
+      const incomingNullKeyedTracestate =
+        'null@nr=0-0-33-2827902-7d3efb1b173fecfa-e8b91a159289ff74-1-1.23456-1518469636035'
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        txn.acceptTraceContextPayload(incomingTraceparent, incomingNullKeyedTracestate)
+
+        // traceparent
+        expect(txn.traceId).to.equal('4bf92f3577b34da6a3ce929d0e0e4736')
+        expect(txn.parentSpanId).to.equal('00f067aa0ba902b7')
+
+        // tracestate
+        expect(txn.parentType).to.not.exist
+        expect(txn.accountId).to.not.exist
+        expect(txn.parentApp).to.not.exist
+        expect(txn.parentId).to.not.exist
+
+        txn.end()
+      })
+    })
+
+    it('should accept tracestate when trusted_account_key matches', () => {
+      agent.config.trusted_account_key = '33'
+      agent.config.distributed_tracing.enabled = true
+      agent.config.span_events.enabled = true
+
+      const incomingTraceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+      // When two bugs combine, we might accept a tracestate we shouldn't
+      const incomingNullKeyedTracestate =
+        '33@nr=0-0-33-2827902-7d3efb1b173fecfa-e8b91a159289ff74-1-1.23456-1518469636035'
+
+      helper.runInTransaction(agent, function(txn) {
+        var childSegment = txn.trace.add('child')
+        childSegment.start()
+
+        txn.acceptTraceContextPayload(incomingTraceparent, incomingNullKeyedTracestate)
+
+        // traceparent
+        expect(txn.traceId).to.equal('4bf92f3577b34da6a3ce929d0e0e4736')
+        expect(txn.parentSpanId).to.equal('00f067aa0ba902b7')
+
+        // tracestate
+        expect(txn.parentType).to.equal('App')
+        expect(txn.parentAcct).to.equal('33')
+        expect(txn.parentApp).to.equal('2827902')
+        expect(txn.parentId).to.equal('e8b91a159289ff74')
+
+        txn.end()
+      })
     })
   })
 
@@ -1302,7 +1604,7 @@ describe('Transaction', function() {
       tx.addDistributedTraceIntrinsics(attributes)
 
       expect(attributes).to.have.property('guid', tx.id)
-      expect(attributes).to.have.property('traceId', tx.id)
+      expect(attributes).to.have.property('traceId', tx.traceId)
       expect(attributes).to.have.property('priority', tx.priority)
       expect(attributes).to.have.property('sampled', true)
     })
@@ -1330,4 +1632,11 @@ describe('Transaction', function() {
 
 function getMetrics(agent) {
   return agent.metrics._metrics
+}
+
+function createHeadersAndInsertTrace(transaction) {
+  const headers = {}
+  transaction.insertDistributedTraceHeaders(headers)
+
+  return headers
 }

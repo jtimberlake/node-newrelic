@@ -1,3 +1,110 @@
+### 6.4.1 (2020-02-20):
+
+* Bumped `@newrelic/aws-sdk` version to `v1.1.2` from `v1.1.1`.
+  https://github.com/newrelic/node-newrelic-aws-sdk/blob/master/CHANGELOG.md
+
+  Notable improvements include:
+  * Fixed issue where instrumentation would crash pulling `host` and `port` values
+  when `AmazonDaxClient` was used as the service for `DocumentClient`.
+
+* Prevented passing CI with `.only()` in mocha tests.
+
+* Removed CI restriction for Node `12.15`. Node shipped a fix for the `12.16`
+  breakage in `12.16.1`.
+
+* Removed calls to `OutgoingMessage.prototype._headers` in favor of using public
+  `getHeaders` API (thanks to @adityasabnis for bringing this to our attention).
+
+* Removed engine upper-bound to enable easier experimentation of newer Node versions
+  with the agent for customers.
+
+  Please see https://docs.newrelic.com/docs/agents/nodejs-agent/getting-started/compatibility-requirements-nodejs-agent for officially supported versions.
+  Incompatibilities are expected for odd-numbered releases, which are not supported,
+  and even-numbered releases before "official" support has been released.
+
+* Reduced "... Aggregator data send." log messages to `debug` level to reduce noise
+  of default logs.
+
+* Fixed issue where disabled agent would return an empty string instead of an empty
+  object from API#getLinkingMetadata().
+
+  This issue would cause the `@newrelic/winston-enricher` module to crash when
+  attempting to inject log metatdata.
+
+* Reduced logging level of raw `x-queue-start` or `x-request-start` header values
+  to avoid logging very large values at default logging levels.
+
+### 6.4.0 (2020-02-12):
+
+* Added support for W3C Trace Context, with easy upgrade from New Relic trace
+  context.
+
+  * Distributed Tracing now supports W3C Trace Context headers for HTTP protocols
+    when distributed tracing is enabled. Our implementation can accept and emit both
+    the W3C trace header format and the New Relic trace header format. This simplifies
+    agent upgrades, allowing trace context to be propagated between services with older
+    and newer releases of New Relic agents. W3C trace header format will always be
+    accepted and emitted. New Relic trace header format will be accepted, and you can
+    optionally disable emission of the New Relic trace header format.
+
+  * When distributed tracing is enabled with `distributed_tracing.enabled: true`,
+    the Node agent will now accept W3C's `traceparent` and `tracestate` headers when
+    calling `TransactionHandle#acceptDistributedTraceHeaders` or automatically via
+    `http` instrumentation. When calling `Transaction#insertDistributedTraceHeaders`,
+    or automatically via `http` instrumentation, the Node agent will include the W3C
+    headers along with the New Relic distributed tracing header, unless the New Relic
+    trace header format is disabled using `distributed_tracing.exclude_newrelic_header:true`.
+
+  * Added `TransactionHandle#acceptDistributedTraceHeaders` API for accepting both
+    New Relic and W3C TraceContext distributed traces.
+
+    Deprecated `TransactionHandle#acceptDistributedTracePayload` which will be removed
+    in a future major release.
+
+  * Added `TransactionHandle#insertDistributedTraceHeaders` API for adding outbound
+    distributed trace headers. Both W3C TraceContext and New Relic formats will be
+    included unless `distributed_tracing.exclude_newrelic_header: true`.
+
+    Deprecated `TransactionHandle#createDistributedTracePayload` which will be removed
+    in a future major release.
+
+  Known Issues and Workarounds
+
+  * If a .NET agent is initiating traces as the root service, do not upgrade your downstream Node New Relic agents to this agent release.
+
+* Pins Node 12 version to `v12.15` to avoid breakages with `v12.16.0` until cause(s)
+  resolved.
+
+* AWS Lambda Improvements
+
+  * Fixed issue where lambda invocation errors were not noticed in Node 10 or Node 12 environments.
+  * Added collection of additional AWS Lambda event source meta data.
+  * Added event type detection for lambda invocation events.
+  * Expanded ARN harvest to include ALB and CloudWatch.
+
+* Improved Transaction and Trace ID generation.
+
+* Updated publish-docs script to use `npm run` instead of `make`.
+
+### 6.3.0 (2020-01-27):
+
+* Bumped `@newrelic/aws-sdk` to `v1.1.1` from `v1.0.0`.
+ https://github.com/newrelic/node-newrelic-aws-sdk/blob/master/CHANGELOG.md
+ Notable improvements include:
+   * Added official support for API promise calls, fixing two critical bugs.
+   * Added check before applying instrumentation to avoid breaking for very old
+  versions.
+
+* Added `bindPromise()` to `Shim` prototype for direct usage by instrumentation.
+ Previously, `_bindPromise()` was a private function in the `Shim` module.
+
+* Fixed spelling in configuration error.
+  Thank you to David Ray (@daaray) for the contribution.
+
+* Fixed long-log truncation issue in Serverless mode.
+
+* Updated language in agent to be in line with New Relic Standards.
+
 ### 6.2.0 (2019-11-25):
 
 * Upgraded `tap` to resolve `handlebars` audit warnings.

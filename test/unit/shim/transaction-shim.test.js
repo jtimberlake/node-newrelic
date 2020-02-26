@@ -29,6 +29,9 @@ describe('TransactionShim', function() {
       encoding_key: 'this is an encoding key',
       cross_process_id: '1234#4321'
     }
+
+    agent.config.account_id = 'AccountId1'
+    agent.config.primary_application_id = 'AppId1'
     agent.config.trusted_account_ids = [9876, 6789]
     agent.config._fromServer(params, 'encoding_key')
     agent.config._fromServer(params, 'cross_process_id')
@@ -449,7 +452,7 @@ describe('TransactionShim', function() {
 
       it('Should propagate w3c tracecontext header when present', function() {
         agent.config.distributed_tracing.enabled = true
-        agent.config.feature_flag.dt_format_w3c = true
+
         const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
         const tracestate = 'test=test'
 
@@ -457,8 +460,47 @@ describe('TransactionShim', function() {
           const headers = { traceparent, tracestate }
           const segment = shim.getSegment()
           shim.handleCATHeaders(headers, segment)
-          expect(tx.traceContext.traceparent).to.equal(traceparent)
-          expect(tx.traceContext.tracestate.endsWith(tracestate)).to.be.true
+
+          const outboundHeaders = {}
+          tx.insertDistributedTraceHeaders(outboundHeaders)
+
+          expect(outboundHeaders.traceparent.startsWith('00-4bf92f3577b3')).to.equal(true)
+          expect(outboundHeaders.tracestate.endsWith(tracestate)).to.be.true
+        })
+      })
+
+      it('Should propagate w3c tracecontext header when no tracestate', function() {
+        agent.config.distributed_tracing.enabled = true
+
+        const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+
+        helper.runInTransaction(agent, function(tx) {
+          const headers = { traceparent }
+          const segment = shim.getSegment()
+          shim.handleCATHeaders(headers, segment)
+
+          const outboundHeaders = {}
+          tx.insertDistributedTraceHeaders(outboundHeaders)
+
+          expect(outboundHeaders.traceparent.startsWith('00-4bf92f3577b3')).to.equal(true)
+        })
+      })
+
+      it('Should propagate w3c tracecontext header when tracestate empty string', function() {
+        agent.config.distributed_tracing.enabled = true
+
+        const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'
+        const tracestate = ''
+
+        helper.runInTransaction(agent, function(tx) {
+          const headers = { traceparent, tracestate }
+          const segment = shim.getSegment()
+          shim.handleCATHeaders(headers, segment)
+
+          const outboundHeaders = {}
+          tx.insertDistributedTraceHeaders(outboundHeaders)
+
+          expect(outboundHeaders.traceparent.startsWith('00-4bf92f3577b3')).to.equal(true)
         })
       })
     })
