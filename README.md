@@ -1,4 +1,74 @@
 [![npm status badge][1]][2]
+# EXPERIMENTAL CONFIGURATION DISABLING
+
+## Installing
+
+This branch contains a custom version of the agent that allows specific third party instrumentation to be disabled.
+
+Instead of running
+
+    npm install newrelic
+
+to install the agent, use npm's github features to install this branch with the following.
+
+    npm install 'newrelic/node-newrelic#experimental/disable-instrumentation'
+
+or add the repo and branch information directly to the package.json dependencies
+
+    {
+        /* ... */
+        "dependencies": {
+            "newrelic": "github:newrelic/node-newrelic#experimental/disable-instrumentation"
+        }
+        /* ... */
+    }
+
+## Using
+
+This agent is identical to our production agent with one exception.  In your `newrelic.js` configuration, end-users can add the new  `instrumentation` configuration key
+
+    // File: newrelic.js
+    {
+        /* ... */
+        instrumentation: {
+            'aws-sdk': {enabled: true},
+            'amqplib': {enabled: true},
+            'cassandra-driver': {enabled: true},
+            'connect': {enabled: true},
+            'bluebird': {enabled: true},
+            'director': {enabled: true},
+            'express': {enabled: true},
+            'generic-pool': {enabled: true},
+            '@hapi/hapi': {enabled: true},
+            'hapi': {enabled: true},
+            'ioredis': {enabled: true},
+            'koa': {enabled: true},
+            'memcached': {enabled: true},
+            'mongodb': {enabled: true},
+            'mysql': {enabled: true},
+            'pg': {enabled: true},
+            'q': {enabled: true},
+            'redis': {enabled: true},
+            'restify': {enabled: true},
+            'superagent': {enabled: true},
+            'oracle': {enabled: true},
+            'vision': {enabled: true},
+            'when':{enabled: true}
+        }
+        /* ... */
+    }
+
+This configuration will allow end-user-programmers to disable certain agent instrumentations.  For example, if a user wanted to disable their redis instrumentations, they'd add the following to their `newrelic.js` file
+
+    {
+        /* ... */
+        instrumentation: {
+            'redis': {enabled: false},
+        }
+        /* ... */
+    }
+
+**Important**: This is experimental.  Disabling instrumentation may cause unexpected side effects in an application.  For example, disabling `express` instrumentation would result in transaction names being radically changed.
 
 # New Relic for Node.js
 
