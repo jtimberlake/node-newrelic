@@ -6,6 +6,7 @@ const nock = require('nock')
 const helper = require('../../lib/agent_helper')
 const CollectorApi = require('../../../lib/collector/api')
 const CollectorResponse = require('../../../lib/collector/response')
+const securityPolicies = require('../../lib/fixtures').securityPolicies
 
 const HOST = 'collector.newrelic.com'
 const PORT = 443
@@ -13,6 +14,189 @@ const URL = 'https://' + HOST
 const RUN_ID = 1337
 
 const timeout = global.setTimeout
+
+tap.test('requires a callback', (t) => {
+  const agent = setupMockedAgent()
+  const collectorApi = new CollectorApi(agent)
+
+  t.tearDown(() => {
+    helper.unloadAgent(agent)
+  })
+
+  t.throws(() => { collectorApi.connect(null) }, 'callback is required')
+
+  t.end()
+})
+
+tap.test('receiving 200 response, with valid data', (t) => {
+  t.autoend()
+
+  let agent = null
+  let collectorApi = null
+
+  let redirection = null
+  let connection = null
+
+  const validSsc = {
+    agent_run_id: RUN_ID
+  }
+
+  t.beforeEach((done) => {
+    agent = setupMockedAgent()
+    collectorApi = new CollectorApi(agent)
+
+    nock.disableNetConnect()
+
+    const response = {return_value: validSsc}
+
+    redirection = nock(URL + ':443')
+      .post(helper.generateCollectorPath('preconnect'))
+      .reply(200, {return_value: {redirect_host: HOST, security_policies: {}}})
+    connection = nock(URL)
+      .post(helper.generateCollectorPath('connect'))
+      .reply(200, response)
+
+    done()
+  })
+
+  t.afterEach((done) => {
+    if (!nock.isDone()) {
+      /* eslint-disable no-console */
+      console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+      /* eslint-enable no-console */
+      nock.cleanAll()
+    }
+
+    nock.enableNetConnect()
+
+    helper.unloadAgent(agent)
+    agent = null
+    collectorApi = null
+
+    done()
+  })
+
+  t.test('should not error out', (t) => {
+    collectorApi.connect((error) => {
+      t.error(error)
+
+      redirection.done()
+      connection.done()
+
+      t.end()
+    })
+  })
+
+  t.test('should pass through server-side configuration untouched', (t) => {
+    collectorApi.connect((error, res) => {
+      const ssc = res.payload
+      t.deepEqual(ssc, validSsc)
+
+      redirection.done()
+      connection.done()
+
+      t.end()
+    })
+  })
+})
+
+tap.test('succeeds when given a different port number for redirect', (t) => {
+  t.autoend()
+
+  let agent = null
+  let collectorApi = null
+
+  let redirection = null
+  let connection = null
+
+  const validSsc = {
+    agent_run_id: RUN_ID
+  }
+
+  t.beforeEach((done) => {
+    agent = setupMockedAgent()
+    collectorApi = new CollectorApi(agent)
+
+    nock.disableNetConnect()
+
+    const response = {return_value: validSsc}
+
+    redirection = nock(URL + ':443')
+      .post(helper.generateCollectorPath('preconnect'))
+      .reply(200, {return_value: {redirect_host: HOST + ':8089', security_policies: {}}})
+
+    connection = nock(URL + ':8089')
+      .post(helper.generateCollectorPath('connect'))
+      .reply(200, response)
+
+    done()
+  })
+
+  t.afterEach((done) => {
+    if (!nock.isDone()) {
+      /* eslint-disable no-console */
+      console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+      /* eslint-enable no-console */
+      nock.cleanAll()
+    }
+
+    nock.enableNetConnect()
+
+    helper.unloadAgent(agent)
+    agent = null
+    collectorApi = null
+
+    done()
+  })
+
+  t.test('should not error out', (t) => {
+    collectorApi.connect((error) => {
+      t.error(error)
+
+      t.end()
+    })
+  })
+
+  t.test('should have the correct hostname', (t) => {
+    collectorApi.connect(() => {
+      t.equal(collectorApi._agent.config.host, HOST)
+
+      t.end()
+    })
+  })
+
+  t.test('should have the correct port number', (t) => {
+    collectorApi.connect(() => {
+      t.equal(collectorApi._agent.config.port, '8089')
+
+      t.end()
+    })
+  })
+
+  t.test('should have a run ID', (t) => {
+    collectorApi.connect(function test(error, res) {
+      const ssc = res.payload
+      t.equal(ssc.agent_run_id, RUN_ID)
+
+      redirection.done()
+      connection.done()
+
+      t.end()
+    })
+  })
+
+  t.test('should pass through server-side configuration untouched', (t) => {
+    collectorApi.connect(function test(error, res) {
+      const ssc = res.payload
+      t.deepEqual(ssc, validSsc)
+
+      redirection.done()
+      connection.done()
+
+      t.end()
+    })
+  })
+})
 
 tap.test('succeeds after one 503 on preconnect', (t) => {
   t.autoend()
@@ -338,6 +522,116 @@ tap.test('retries on receiving invalid license key (401)', (t) => {
       cb()
     })
   }
+})
+
+tap.test('in a LASP/CSP enabled agent', (t) => {
+  const SECURITY_POLICIES_TOKEN = 'TEST-TEST-TEST-TEST'
+
+  t.autoend()
+
+  let agent = null
+  let collectorApi = null
+  let policies = null
+
+  t.beforeEach((done) => {
+    agent = setupMockedAgent()
+    agent.config.security_policies_token = SECURITY_POLICIES_TOKEN
+
+    collectorApi = new CollectorApi(agent)
+
+    policies = securityPolicies()
+
+    nock.disableNetConnect()
+
+    done()
+  })
+
+  t.afterEach((done) => {
+    if (!nock.isDone()) {
+      /* eslint-disable no-console */
+      console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+      /* eslint-enable no-console */
+      nock.cleanAll()
+    }
+
+    nock.enableNetConnect()
+
+    helper.unloadAgent(agent)
+    agent = null
+    collectorApi = null
+    policies = null
+
+    done()
+  })
+
+  t.test('should include security policies in api callback response', (t) => {
+    const valid = {
+      agent_run_id: RUN_ID,
+      security_policies: policies
+    }
+
+    const response = {return_value: valid}
+
+    const redirection = nock(URL + ':443')
+      .post(helper.generateCollectorPath('preconnect'))
+      .reply(200, {
+        return_value: {
+          redirect_host: HOST,
+          security_policies: policies
+        }
+      })
+
+    const connection = nock(URL)
+      .post(helper.generateCollectorPath('connect'))
+      .reply(200, response)
+
+    collectorApi.connect(function test(error, res) {
+      t.deepEqual(res.payload, valid)
+
+      redirection.done()
+      connection.done()
+
+      t.end()
+    })
+  })
+
+  t.test('drops data collected before connect when policies are updated', (t) => {
+    agent.config.api.custom_events_enabled = true
+
+    agent.customEventAggregator.add(['will be overwritten'])
+    t.equal(agent.customEventAggregator.length, 1)
+
+    const valid = {
+      agent_run_id: RUN_ID,
+      security_policies: policies
+    }
+
+    const response = {return_value: valid}
+
+    const redirection = nock(URL + ':443')
+      .post(helper.generateCollectorPath('preconnect'))
+      .reply(200, {
+        return_value: {
+          redirect_host: HOST,
+          security_policies: policies
+        }
+      })
+
+    const connection = nock(URL)
+      .post(helper.generateCollectorPath('connect'))
+      .reply(200, response)
+
+    collectorApi.connect(function test(error, res) {
+      t.deepEqual(res.payload, valid)
+
+      t.equal(agent.customEventAggregator.length, 0)
+
+      redirection.done()
+      connection.done()
+
+      t.end()
+    })
+  })
 })
 
 function fastSetTimeoutIncrementRef() {
