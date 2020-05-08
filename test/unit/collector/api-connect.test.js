@@ -384,6 +384,72 @@ tap.test('succeeds after five 503s on preconnect', (t) => {
   }
 })
 
+tap.test('disconnects on force disconnect (410)', (t) => {
+  t.autoend()
+
+  let collectorApi = null
+  let agent = null
+
+  const exception = {
+    exception: {
+      message: 'fake force disconnect',
+      error_type: 'NewRelic::Agent::ForceDisconnectException'
+    }
+  }
+
+  let disconnect = null
+
+  t.beforeEach((done) => {
+    fastSetTimeoutIncrementRef()
+
+    nock.disableNetConnect()
+
+    agent = setupMockedAgent()
+    collectorApi = new CollectorApi(agent)
+
+    const redirectURL = helper.generateCollectorPath('preconnect')
+    disconnect = nock(URL).post(redirectURL).times(1).reply(410, exception)
+
+    done()
+  })
+
+  t.afterEach((done) => {
+    restoreSetTimeout()
+
+    if (!nock.isDone()) {
+      /* eslint-disable no-console */
+      console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+      /* eslint-enable no-console */
+      nock.cleanAll()
+    }
+
+    nock.enableNetConnect()
+    helper.unloadAgent(agent)
+
+    done()
+  })
+
+  t.test('should not have errored', (t) => {
+    collectorApi.connect((err) => {
+      t.error(err)
+
+      t.ok(disconnect.isDone())
+
+      t.end()
+    })
+  })
+
+  t.test('should not have a response body', (t) => {
+    collectorApi.connect((err, response) => {
+      t.notOk(response.payload)
+
+      t.ok(disconnect.isDone())
+
+      t.end()
+    })
+  })
+})
+
 tap.test('retries preconnect until forced to disconnect (410)', (t) => {
   t.autoend()
 
