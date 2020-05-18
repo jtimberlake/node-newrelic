@@ -57,407 +57,6 @@ describe('CollectorAPI', function() {
     helper.unloadAgent(agent)
   })
 
-  // describe('reportSettings', function() {
-  //   var bad
-  //   var res
-  //   var payload = {return_value: []}
-
-  //   before(function(done) {
-  //     api._agent.config.run_id = RUN_ID
-
-  //     var mock = nock(URL)
-  //       .post(helper.generateCollectorPath('agent_settings', RUN_ID))
-  //       .reply(200, payload)
-
-  //     api.reportSettings(function test(error, response) {
-  //       bad = error
-  //       res = response
-  //       mock.done()
-  //       done()
-  //     })
-  //   })
-
-  //   after(function() {
-  //     api._agent.config.run_id = undefined
-  //   })
-
-  //   it('should not error out', function() {
-  //     should.not.exist(bad)
-  //   })
-
-  //   it('should return the expected `empty` response', function() {
-  //     expect(res.payload).eql(payload.return_value)
-  //   })
-  // })
-
-  // describe('errorData', function() {
-  //   it('requires errors to send', (done) => {
-  //     api.error_data(null, (err) => {
-  //       expect(err)
-  //         .to.be.an.instanceOf(Error)
-  //         .and.have.property('message', 'must pass errors to send')
-  //       done()
-  //     })
-  //   })
-
-  //   it('requires a callback', function() {
-  //     expect(function() { api.error_data([], null) })
-  //       .to.throw('callback is required')
-  //   })
-
-  //   describe('on the happy path', function() {
-  //     let bad = null
-  //     let command = null
-  //     var response = {return_value: []}
-
-  //     before(function(done) {
-  //       api._agent.config.run_id = RUN_ID
-  //       var shutdown = nock(URL)
-  //         .post(helper.generateCollectorPath('error_data', RUN_ID))
-  //         .reply(200, response)
-
-  //       var errors = [
-  //         [
-  //           0,                          // timestamp, which is always ignored
-  //           'TestTransaction/Uri/TEST', // transaction name
-  //           'You done screwed up',      // helpful, informative message
-  //           'SampleError',              // Error type (almost always Error in practice)
-  //           {},                         // request parameters
-  //         ]
-  //       ]
-
-  //       api.error_data(errors, function test(error, res) {
-  //         bad = error
-  //         command = res
-
-  //         shutdown.done()
-  //         done()
-  //       })
-  //     })
-
-  //     after(function() {
-  //       api._agent.config.run_id = undefined
-  //     })
-
-  //     it('should not error out', function() {
-  //       should.not.exist(bad)
-  //     })
-
-  //     it('should return retain state', function() {
-  //       expect(command).to.have.property('retainData').eql(false)
-  //     })
-  //   })
-  // })
-
-  describe('sql_trace_data', function() {
-    it('requires queries to send', (done) => {
-      api.sql_trace_data(null, (err) => {
-        expect(err)
-          .to.be.an.instanceOf(Error)
-          .and.have.property('message', 'must pass queries to send')
-        done()
-      })
-    })
-
-    it('requires a callback', function() {
-      expect(function() { api.sql_trace_data([], null) })
-        .to.throw('callback is required')
-    })
-
-    describe('on the happy path', function() {
-      let bad = null
-
-      var response = {return_value: []}
-
-      before(function(done) {
-        api._agent.config.run_id = RUN_ID
-        var shutdown = nock(URL)
-          .post(helper.generateCollectorPath('sql_trace_data', RUN_ID))
-          .reply(200, response)
-
-        var queries = [
-          [
-            'TestTransaction/Uri/TEST',
-            '/TEST',
-            1234,
-            'select * from foo',
-            '/Datastore/Mysql/select/foo',
-            1,
-            700,
-            700,
-            700,
-            'compressed/bas64 params'
-          ]
-        ]
-
-        api.sql_trace_data(queries, function test(error) {
-          bad = error
-
-          shutdown.done()
-          done()
-        })
-      })
-
-      after(function() {
-        api._agent.config.run_id = undefined
-      })
-
-      it('should not error out', function() {
-        should.not.exist(bad)
-      })
-    })
-  })
-
-  describe('analyticsEvents', function() {
-    it('requires errors to send', (done) => {
-      api.analytic_event_data(null, (err) => {
-        expect(err)
-          .to.be.an.instanceOf(Error)
-          .and.have.property('message', 'must pass events to send')
-        done()
-      })
-    })
-
-    it('requires a callback', function() {
-      expect(function() { api.analytic_event_data([], null) })
-        .to.throw('callback is required')
-    })
-
-    describe('on the happy path', function() {
-      let bad = null
-      let command = null
-
-      var response = {return_value: []}
-
-      before(function(done) {
-        api._agent.config.run_id = RUN_ID
-        var endpoint = nock(URL)
-          .post(helper.generateCollectorPath('analytic_event_data', RUN_ID))
-          .reply(200, response)
-
-        var transactionEvents = [
-          RUN_ID,
-          [{
-            'webDuration': 1.0,
-            'timestamp': 1000,
-            'name': 'Controller/rails/welcome/index',
-            'duration': 1.0,
-            'type': 'Transaction'
-          },{
-            'A': 'a',
-            'B': 'b',
-          }]
-        ]
-
-        api.analytic_event_data(transactionEvents, function test(error, res) {
-          bad = error
-          command = res
-
-          endpoint.done()
-          done()
-        })
-      })
-
-      after(function() {
-        api._agent.config.run_id = undefined
-      })
-
-      it('should not error out', function() {
-        should.not.exist(bad)
-      })
-
-      it('should return retain state', function() {
-        expect(command).to.have.property('retainData').eql(false)
-      })
-    })
-  })
-
-  describe('metricData', function() {
-    it('requires metrics to send', (done) => {
-      api.metric_data(null, (err) => {
-        expect(err)
-          .to.be.an.instanceOf(Error)
-          .and.have.property('message', 'must pass metrics to send')
-        done()
-      })
-    })
-
-    it('requires a callback', function() {
-      expect(function() { api.metric_data([], null) })
-        .to.throw('callback is required')
-    })
-
-    describe('on the happy path', function() {
-      let bad = null
-      let command = null
-
-      var response = {return_value: []}
-
-      before(function(done) {
-        api._agent.config.run_id = RUN_ID
-        var shutdown = nock(URL)
-          .post(helper.generateCollectorPath('metric_data', RUN_ID))
-          .reply(200, response)
-
-        // would like to keep this set of tests relatively self-contained
-        var metrics = {
-          toJSON: function() {
-            return [
-              [{name: 'Test/Parent'},  [1,0.026,0.006,0.026,0.026,0.000676]],
-              [{name: 'Test/Child/1'}, [1,0.012,0.012,0.012,0.012,0.000144]],
-              [{name: 'Test/Child/2'}, [1,0.008,0.008,0.008,0.008,0.000064]]
-            ]
-          }
-        }
-
-        api.metric_data(metrics, function test(error, res) {
-          bad = error
-          command = res
-
-          shutdown.done()
-          done()
-        })
-      })
-
-      after(function() {
-        api._agent.config.run_id = undefined
-      })
-
-      it('should not error out', function() {
-        should.not.exist(bad)
-      })
-
-      it('should return empty data array', function() {
-        expect(command).to.have.property('retainData', false)
-      })
-    })
-  })
-
-  describe('transaction_sample_data', function() {
-    it('requires slow trace data to send', (done) => {
-      api.transaction_sample_data(null, (err) => {
-        expect(err)
-          .to.be.an.instanceOf(Error)
-          .and.have.property('message', 'must pass traces to send')
-        done()
-      })
-    })
-
-    it('requires a callback', function() {
-      expect(function() { api.transaction_sample_data([], null) })
-        .to.throw('callback is required')
-    })
-
-    describe('on the happy path', function() {
-      let bad = null
-
-      var response = {return_value: []}
-
-      before(function(done) {
-        api._agent.config.run_id = RUN_ID
-        var shutdown = nock(URL)
-          .post(helper.generateCollectorPath('transaction_sample_data', RUN_ID))
-          .reply(200, response)
-
-        // imagine this is a serialized transaction trace
-        var trace = []
-
-        api.transaction_sample_data([trace], function test(error) {
-          bad = error
-
-          shutdown.done()
-          done()
-        })
-      })
-
-      after(function() {
-        api._agent.config.run_id = undefined
-      })
-
-      it('should not error out', function() {
-        should.not.exist(bad)
-      })
-    })
-  })
-
-  describe('shutdown', function() {
-    it('requires a callback', function() {
-      expect(function() { api.shutdown(null) }).to.throw('callback is required')
-    })
-
-    describe('on the happy path', function() {
-      var bad = null
-      var command = null
-
-      var response = {return_value: null}
-
-      before(function(done) {
-        api._agent.config.run_id = RUN_ID
-        var shutdown = nock(URL)
-          .post(helper.generateCollectorPath('shutdown', RUN_ID))
-          .reply(200, response)
-
-        api.shutdown(function test(error, res) {
-          bad = error
-          command = res
-
-          shutdown.done()
-          done()
-        })
-      })
-
-      after(function() {
-        api._agent.config.run_id = undefined
-      })
-
-      it('should not error out', function() {
-        should.not.exist(bad)
-      })
-
-      it('should return null', function() {
-        expect(command).to.exist.and.have.property('payload', null)
-      })
-    })
-
-    describe('off the happy path', function() {
-      describe('fails on a 503 status code', function() {
-        var captured = null
-        var command = null
-
-        beforeEach(function(done) {
-          api._agent.config.run_id = RUN_ID
-          var failure = nock(URL)
-            .post(helper.generateCollectorPath('shutdown', RUN_ID))
-            .reply(503)
-
-          api.shutdown(function test(error, response) {
-            captured = error
-            command = response
-
-            failure.done()
-            done()
-          })
-        })
-
-        afterEach(function() {
-          api._agent.config.run_id = undefined
-        })
-
-        it('should have gotten an error', function() {
-          expect(captured).to.be.null
-        })
-
-        it('should no longer have agent run id', function() {
-          expect(api._agent.config.run_id).to.be.undefined
-        })
-
-        it('should tell the requester to shut down', () => {
-          expect(command.shouldShutdownRun()).to.be.true
-        })
-      })
-    })
-  })
-
   describe('_runLifecycle', function() {
     let method = null
 
@@ -744,7 +343,7 @@ tap.test('reportSettings', (t) => {
   })
 })
 
-tap.test('errorData', (t) => {
+tap.test('error_data', (t) => {
   t.autoend()
 
   t.test('requires errors to send', (t) => {
@@ -843,6 +442,597 @@ tap.test('errorData', (t) => {
         t.equal(command.retainData, false)
 
         errorDataEndpoint.done()
+
+        t.end()
+      })
+    })
+  })
+})
+
+tap.test('sql_trace_data', (t) => {
+  t.autoend()
+
+  t.test('requires queries to send', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    collectorApi.sql_trace_data(null, (err) => {
+      t.ok(err)
+      t.equal(err.message, 'must pass queries to send')
+
+      t.end()
+    })
+  })
+
+  t.test('requires a callback', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    t.throws(() => { collectorApi.sql_trace_data([], null) }, new Error('callback is required'))
+    t.end()
+  })
+
+  t.test('receiving 200 response, with valid data', (t) => {
+    t.autoend()
+
+    let agent = null
+    let collectorApi = null
+
+    let sqlTraceEndpoint = null
+
+    const queries = [
+      [
+        'TestTransaction/Uri/TEST',
+        '/TEST',
+        1234,
+        'select * from foo',
+        '/Datastore/Mysql/select/foo',
+        1,
+        700,
+        700,
+        700,
+        'compressed/bas64 params'
+      ]
+    ]
+
+    t.beforeEach((done) => {
+      agent = setupMockedAgent()
+      agent.config.run_id = RUN_ID
+      collectorApi = new CollectorApi(agent)
+
+      nock.disableNetConnect()
+
+      const response = {return_value: []}
+
+      sqlTraceEndpoint = nock(URL)
+        .post(helper.generateCollectorPath('sql_trace_data', RUN_ID))
+        .reply(200, response)
+
+      done()
+    })
+
+    t.afterEach((done) => {
+      if (!nock.isDone()) {
+        /* eslint-disable no-console */
+        console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+        /* eslint-enable no-console */
+        nock.cleanAll()
+      }
+
+      nock.enableNetConnect()
+
+      helper.unloadAgent(agent)
+      agent = null
+      collectorApi = null
+
+      done()
+    })
+
+    t.test('should not error out', (t) => {
+      collectorApi.sql_trace_data(queries, (error) => {
+        t.error(error)
+
+        sqlTraceEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should return retain state', (t) => {
+      collectorApi.sql_trace_data(queries, (error, res) => {
+        const command = res
+
+        t.equal(command.retainData, false)
+
+        sqlTraceEndpoint.done()
+
+        t.end()
+      })
+    })
+  })
+})
+
+tap.test('analytic_event_data (transaction events)', (t) => {
+  t.autoend()
+
+  t.test('requires events to send', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    collectorApi.analytic_event_data(null, (err) => {
+      t.ok(err)
+      t.equal(err.message, 'must pass events to send')
+
+      t.end()
+    })
+  })
+
+  t.test('requires a callback', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    t.throws(
+      () => { collectorApi.analytic_event_data([], null) },
+      new Error('callback is required')
+    )
+
+    t.end()
+  })
+
+  t.test('receiving 200 response, with valid data', (t) => {
+    t.autoend()
+
+    let agent = null
+    let collectorApi = null
+
+    let analyticEventEndpoint = null
+
+    const transactionEvents = [
+      RUN_ID,
+      [{
+        'webDuration': 1.0,
+        'timestamp': 1000,
+        'name': 'Controller/rails/welcome/index',
+        'duration': 1.0,
+        'type': 'Transaction'
+      },{
+        'A': 'a',
+        'B': 'b',
+      }]
+    ]
+
+    t.beforeEach((done) => {
+      agent = setupMockedAgent()
+      agent.config.run_id = RUN_ID
+      collectorApi = new CollectorApi(agent)
+
+      nock.disableNetConnect()
+
+      const response = {return_value: []}
+
+      analyticEventEndpoint = nock(URL)
+        .post(helper.generateCollectorPath('analytic_event_data', RUN_ID))
+        .reply(200, response)
+
+      done()
+    })
+
+    t.afterEach((done) => {
+      if (!nock.isDone()) {
+        /* eslint-disable no-console */
+        console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+        /* eslint-enable no-console */
+        nock.cleanAll()
+      }
+
+      nock.enableNetConnect()
+
+      helper.unloadAgent(agent)
+      agent = null
+      collectorApi = null
+
+      done()
+    })
+
+    t.test('should not error out', (t) => {
+      collectorApi.analytic_event_data(transactionEvents, (error) => {
+        t.error(error)
+
+        analyticEventEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should return retain state', (t) => {
+      collectorApi.analytic_event_data(transactionEvents, (error, res) => {
+        const command = res
+
+        t.equal(command.retainData, false)
+
+        analyticEventEndpoint.done()
+
+        t.end()
+      })
+    })
+  })
+})
+
+tap.test('metric_data', (t) => {
+  t.autoend()
+
+  t.test('requires metrics to send', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    collectorApi.metric_data(null, (err) => {
+      t.ok(err)
+      t.equal(err.message, 'must pass metrics to send')
+
+      t.end()
+    })
+  })
+
+  t.test('requires a callback', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    t.throws(
+      () => { collectorApi.metric_data([], null) },
+      new Error('callback is required')
+    )
+
+    t.end()
+  })
+
+  t.test('receiving 200 response, with valid data', (t) => {
+    t.autoend()
+
+    let agent = null
+    let collectorApi = null
+
+    let metricsEndpoint = null
+
+    const metrics = {
+      toJSON: function() {
+        return [
+          [{name: 'Test/Parent'},  [1,0.026,0.006,0.026,0.026,0.000676]],
+          [{name: 'Test/Child/1'}, [1,0.012,0.012,0.012,0.012,0.000144]],
+          [{name: 'Test/Child/2'}, [1,0.008,0.008,0.008,0.008,0.000064]]
+        ]
+      }
+    }
+
+    t.beforeEach((done) => {
+      agent = setupMockedAgent()
+      agent.config.run_id = RUN_ID
+      collectorApi = new CollectorApi(agent)
+
+      nock.disableNetConnect()
+
+      const response = {return_value: []}
+
+      metricsEndpoint = nock(URL)
+        .post(helper.generateCollectorPath('metric_data', RUN_ID))
+        .reply(200, response)
+
+      done()
+    })
+
+    t.afterEach((done) => {
+      if (!nock.isDone()) {
+        /* eslint-disable no-console */
+        console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+        /* eslint-enable no-console */
+        nock.cleanAll()
+      }
+
+      nock.enableNetConnect()
+
+      helper.unloadAgent(agent)
+      agent = null
+      collectorApi = null
+
+      done()
+    })
+
+    t.test('should not error out', (t) => {
+      collectorApi.metric_data(metrics, (error) => {
+        t.error(error)
+
+        metricsEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should return retain state', (t) => {
+      collectorApi.metric_data(metrics, (error, res) => {
+        const command = res
+
+        t.equal(command.retainData, false)
+
+        metricsEndpoint.done()
+
+        t.end()
+      })
+    })
+  })
+})
+
+tap.test('transaction_sample_data (transaction trace)', (t) => {
+  t.autoend()
+
+  t.test('requires slow trace data to send', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    collectorApi.transaction_sample_data(null, (err) => {
+      t.ok(err)
+      t.equal(err.message, 'must pass traces to send')
+
+      t.end()
+    })
+  })
+
+  t.test('requires a callback', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    t.throws(
+      () => { collectorApi.transaction_sample_data([], null) },
+      new Error('callback is required')
+    )
+
+    t.end()
+  })
+
+  t.test('receiving 200 response, with valid data', (t) => {
+    t.autoend()
+
+    let agent = null
+    let collectorApi = null
+
+    let transactionTraceEndpoint = null
+
+    // imagine this is a serialized transaction trace
+    const trace = []
+
+    t.beforeEach((done) => {
+      agent = setupMockedAgent()
+      agent.config.run_id = RUN_ID
+      collectorApi = new CollectorApi(agent)
+
+      nock.disableNetConnect()
+
+      const response = {return_value: []}
+
+      transactionTraceEndpoint = nock(URL)
+        .post(helper.generateCollectorPath('transaction_sample_data', RUN_ID))
+        .reply(200, response)
+
+      done()
+    })
+
+    t.afterEach((done) => {
+      if (!nock.isDone()) {
+        /* eslint-disable no-console */
+        console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+        /* eslint-enable no-console */
+        nock.cleanAll()
+      }
+
+      nock.enableNetConnect()
+
+      helper.unloadAgent(agent)
+      agent = null
+      collectorApi = null
+
+      done()
+    })
+
+    t.test('should not error out', (t) => {
+      collectorApi.transaction_sample_data(trace, (error) => {
+        t.error(error)
+
+        transactionTraceEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should return retain state', (t) => {
+      collectorApi.transaction_sample_data(trace, (error, res) => {
+        const command = res
+
+        t.equal(command.retainData, false)
+
+        transactionTraceEndpoint.done()
+
+        t.end()
+      })
+    })
+  })
+})
+
+tap.test('shutdown', (t) => {
+  t.autoend()
+
+  t.test('requires a callback', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    t.throws(
+      () => { collectorApi.shutdown(null) },
+      new Error('callback is required')
+    )
+
+    t.end()
+  })
+
+  t.test('receiving 200 response, with valid data', (t) => {
+    t.autoend()
+
+    let agent = null
+    let collectorApi = null
+
+    let shutdownEndpoint = null
+
+    t.beforeEach((done) => {
+      agent = setupMockedAgent()
+      agent.config.run_id = RUN_ID
+      collectorApi = new CollectorApi(agent)
+
+      nock.disableNetConnect()
+
+      const response = {return_value: null}
+
+      shutdownEndpoint = nock(URL)
+        .post(helper.generateCollectorPath('shutdown', RUN_ID))
+        .reply(200, response)
+
+      done()
+    })
+
+    t.afterEach((done) => {
+      if (!nock.isDone()) {
+        /* eslint-disable no-console */
+        console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+        /* eslint-enable no-console */
+        nock.cleanAll()
+      }
+
+      nock.enableNetConnect()
+
+      helper.unloadAgent(agent)
+      agent = null
+      collectorApi = null
+
+      done()
+    })
+
+    t.test('should not error out', (t) => {
+      collectorApi.shutdown((error) => {
+        t.error(error)
+
+        shutdownEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should return null', (t) => {
+      collectorApi.shutdown((error, res) => {
+        t.equal(res.payload, null)
+
+        shutdownEndpoint.done()
+
+        t.end()
+      })
+    })
+  })
+
+  t.test('fail on a 503 status code', (t) => {
+    t.autoend()
+
+    let agent = null
+    let collectorApi = null
+
+    let shutdownEndpoint = null
+
+    t.beforeEach((done) => {
+      agent = setupMockedAgent()
+      agent.config.run_id = RUN_ID
+      collectorApi = new CollectorApi(agent)
+
+      nock.disableNetConnect()
+
+      shutdownEndpoint = nock(URL)
+        .post(helper.generateCollectorPath('shutdown', RUN_ID))
+        .reply(503)
+
+      done()
+    })
+
+    t.afterEach((done) => {
+      if (!nock.isDone()) {
+        /* eslint-disable no-console */
+        console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+        /* eslint-enable no-console */
+        nock.cleanAll()
+      }
+
+      nock.enableNetConnect()
+
+      helper.unloadAgent(agent)
+      agent = null
+      collectorApi = null
+
+      done()
+    })
+
+    t.test('should not error out', (t) => {
+      collectorApi.shutdown((error) => {
+        t.error(error)
+
+        shutdownEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should no longer have agent run id', (t) => {
+      collectorApi.shutdown(() => {
+        t.notOk(agent.config.run_id)
+
+        shutdownEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should tell the requester to shut down', (t) => {
+      collectorApi.shutdown((error, res) => {
+        const command = res
+        t.equal(command.shouldShutdownRun(), true)
+
+        shutdownEndpoint.done()
 
         t.end()
       })
