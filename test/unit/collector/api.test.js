@@ -11,7 +11,7 @@ const chai = require('chai')
 const expect = chai.expect
 const helper = require('../../lib/agent_helper')
 const should = chai.should()
-const API = require('../../../lib/collector/api')
+const CollectorApi = require('../../../lib/collector/api')
 
 const HOST = 'collector.newrelic.com'
 const PORT = 443
@@ -42,7 +42,7 @@ describe('CollectorAPI', function() {
     })
     agent.reconfigure = function() {}
     agent.setState = function() {}
-    api = new API(agent)
+    api = new CollectorApi(agent)
   })
 
   afterEach(function() {
@@ -57,97 +57,97 @@ describe('CollectorAPI', function() {
     helper.unloadAgent(agent)
   })
 
-  describe('reportSettings', function() {
-    var bad
-    var res
-    var payload = {return_value: []}
+  // describe('reportSettings', function() {
+  //   var bad
+  //   var res
+  //   var payload = {return_value: []}
 
-    before(function(done) {
-      api._agent.config.run_id = RUN_ID
+  //   before(function(done) {
+  //     api._agent.config.run_id = RUN_ID
 
-      var mock = nock(URL)
-        .post(helper.generateCollectorPath('agent_settings', RUN_ID))
-        .reply(200, payload)
+  //     var mock = nock(URL)
+  //       .post(helper.generateCollectorPath('agent_settings', RUN_ID))
+  //       .reply(200, payload)
 
-      api.reportSettings(function test(error, response) {
-        bad = error
-        res = response
-        mock.done()
-        done()
-      })
-    })
+  //     api.reportSettings(function test(error, response) {
+  //       bad = error
+  //       res = response
+  //       mock.done()
+  //       done()
+  //     })
+  //   })
 
-    after(function() {
-      api._agent.config.run_id = undefined
-    })
+  //   after(function() {
+  //     api._agent.config.run_id = undefined
+  //   })
 
-    it('should not error out', function() {
-      should.not.exist(bad)
-    })
+  //   it('should not error out', function() {
+  //     should.not.exist(bad)
+  //   })
 
-    it('should return the expected `empty` response', function() {
-      expect(res.payload).eql(payload.return_value)
-    })
-  })
+  //   it('should return the expected `empty` response', function() {
+  //     expect(res.payload).eql(payload.return_value)
+  //   })
+  // })
 
-  describe('errorData', function() {
-    it('requires errors to send', (done) => {
-      api.error_data(null, (err) => {
-        expect(err)
-          .to.be.an.instanceOf(Error)
-          .and.have.property('message', 'must pass errors to send')
-        done()
-      })
-    })
+  // describe('errorData', function() {
+  //   it('requires errors to send', (done) => {
+  //     api.error_data(null, (err) => {
+  //       expect(err)
+  //         .to.be.an.instanceOf(Error)
+  //         .and.have.property('message', 'must pass errors to send')
+  //       done()
+  //     })
+  //   })
 
-    it('requires a callback', function() {
-      expect(function() { api.error_data([], null) })
-        .to.throw('callback is required')
-    })
+  //   it('requires a callback', function() {
+  //     expect(function() { api.error_data([], null) })
+  //       .to.throw('callback is required')
+  //   })
 
-    describe('on the happy path', function() {
-      let bad = null
-      let command = null
-      var response = {return_value: []}
+  //   describe('on the happy path', function() {
+  //     let bad = null
+  //     let command = null
+  //     var response = {return_value: []}
 
-      before(function(done) {
-        api._agent.config.run_id = RUN_ID
-        var shutdown = nock(URL)
-          .post(helper.generateCollectorPath('error_data', RUN_ID))
-          .reply(200, response)
+  //     before(function(done) {
+  //       api._agent.config.run_id = RUN_ID
+  //       var shutdown = nock(URL)
+  //         .post(helper.generateCollectorPath('error_data', RUN_ID))
+  //         .reply(200, response)
 
-        var errors = [
-          [
-            0,                          // timestamp, which is always ignored
-            'TestTransaction/Uri/TEST', // transaction name
-            'You done screwed up',      // helpful, informative message
-            'SampleError',              // Error type (almost always Error in practice)
-            {},                         // request parameters
-          ]
-        ]
+  //       var errors = [
+  //         [
+  //           0,                          // timestamp, which is always ignored
+  //           'TestTransaction/Uri/TEST', // transaction name
+  //           'You done screwed up',      // helpful, informative message
+  //           'SampleError',              // Error type (almost always Error in practice)
+  //           {},                         // request parameters
+  //         ]
+  //       ]
 
-        api.error_data(errors, function test(error, res) {
-          bad = error
-          command = res
+  //       api.error_data(errors, function test(error, res) {
+  //         bad = error
+  //         command = res
 
-          shutdown.done()
-          done()
-        })
-      })
+  //         shutdown.done()
+  //         done()
+  //       })
+  //     })
 
-      after(function() {
-        api._agent.config.run_id = undefined
-      })
+  //     after(function() {
+  //       api._agent.config.run_id = undefined
+  //     })
 
-      it('should not error out', function() {
-        should.not.exist(bad)
-      })
+  //     it('should not error out', function() {
+  //       should.not.exist(bad)
+  //     })
 
-      it('should return retain state', function() {
-        expect(command).to.have.property('retainData').eql(false)
-      })
-    })
-  })
+  //     it('should return retain state', function() {
+  //       expect(command).to.have.property('retainData').eql(false)
+  //     })
+  //   })
+  // })
 
   describe('sql_trace_data', function() {
     it('requires queries to send', (done) => {
@@ -678,3 +678,197 @@ describe('CollectorAPI', function() {
     })
   })
 })
+
+
+tap.test('reportSettings', (t) => {
+  t.autoend()
+
+  let agent = null
+  let collectorApi = null
+
+  let settings = null
+
+  const emptySettingsPayload = {
+    return_value: []
+  }
+
+  t.beforeEach((done) => {
+    agent = setupMockedAgent()
+    agent.config.run_id = RUN_ID
+    collectorApi = new CollectorApi(agent)
+
+    nock.disableNetConnect()
+
+    settings = nock(URL)
+      .post(helper.generateCollectorPath('agent_settings', RUN_ID))
+      .reply(200, emptySettingsPayload)
+
+    done()
+  })
+
+  t.afterEach((done) => {
+    if (!nock.isDone()) {
+      /* eslint-disable no-console */
+      console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+      /* eslint-enable no-console */
+      nock.cleanAll()
+    }
+
+    nock.enableNetConnect()
+
+    helper.unloadAgent(agent)
+    agent = null
+    collectorApi = null
+
+    done()
+  })
+
+  t.test('should not error out', (t) => {
+    collectorApi.reportSettings((error) => {
+      t.error(error)
+
+      settings.done()
+
+      t.end()
+    })
+  })
+
+  t.test('should return the expected `empty` response', (t) => {
+    collectorApi.reportSettings((error, res) => {
+      t.deepEqual(res.payload, emptySettingsPayload.return_value)
+
+      settings.done()
+
+      t.end()
+    })
+  })
+})
+
+tap.test('errorData', (t) => {
+  t.autoend()
+
+  t.test('requires errors to send', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    collectorApi.error_data(null, (err) => {
+      t.ok(err)
+      t.equal(err.message, 'must pass errors to send')
+
+      t.end()
+    })
+  })
+
+  t.test('requires a callback', (t) => {
+    const agent = setupMockedAgent()
+    const collectorApi = new CollectorApi(agent)
+
+    t.tearDown(() => {
+      helper.unloadAgent(agent)
+    })
+
+    t.throws(() => { collectorApi.error_data([], null) }, new Error('callback is required'))
+    t.end()
+  })
+
+  t.test('receiving 200 response, with valid data', (t) => {
+    t.autoend()
+
+    let agent = null
+    let collectorApi = null
+
+    let errorDataEndpoint = null
+
+    const errors = [
+      [
+        0,                          // timestamp, which is always ignored
+        'TestTransaction/Uri/TEST', // transaction name
+        'You done screwed up',      // helpful, informative message
+        'SampleError',              // Error type (almost always Error in practice)
+        {},                         // request parameters
+      ]
+    ]
+
+    t.beforeEach((done) => {
+      agent = setupMockedAgent()
+      agent.config.run_id = RUN_ID
+      collectorApi = new CollectorApi(agent)
+
+      nock.disableNetConnect()
+
+      const response = {return_value: []}
+
+      errorDataEndpoint = nock(URL)
+        .post(helper.generateCollectorPath('error_data', RUN_ID))
+        .reply(200, response)
+
+      done()
+    })
+
+    t.afterEach((done) => {
+      if (!nock.isDone()) {
+        /* eslint-disable no-console */
+        console.error('Cleaning pending mocks: %j', nock.pendingMocks())
+        /* eslint-enable no-console */
+        nock.cleanAll()
+      }
+
+      nock.enableNetConnect()
+
+      helper.unloadAgent(agent)
+      agent = null
+      collectorApi = null
+
+      done()
+    })
+
+    t.test('should not error out', (t) => {
+      collectorApi.error_data(errors, (error) => {
+        t.error(error)
+
+        errorDataEndpoint.done()
+
+        t.end()
+      })
+    })
+
+    t.test('should return retain state', (t) => {
+      collectorApi.error_data(errors, (error, res) => {
+        const command = res
+
+        t.equal(command.retainData, false)
+
+        errorDataEndpoint.done()
+
+        t.end()
+      })
+    })
+  })
+})
+
+function setupMockedAgent() {
+  const agent = helper.loadMockedAgent({
+    host: HOST,
+    port: PORT,
+    app_name: ['TEST'],
+    ssl: true,
+    license_key: 'license key here',
+    utilization: {
+      detect_aws: false,
+      detect_pcf: false,
+      detect_azure: false,
+      detect_gcp: false,
+      detect_docker: false
+    },
+    browser_monitoring: {},
+    transaction_tracer: {}
+  })
+  agent.reconfigure = function() {}
+  agent.setState = function() {}
+
+  return agent
+}
