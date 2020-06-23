@@ -1,3 +1,179 @@
+### 6.10.0 (2020-06-22):
+
+* Additional Transaction Information applied to Span Events
+  * When Distributed Tracing and/or Infinite Tracing are enabled, the Agent will now incorporate additional information from the Transaction Event on to the currently available Span Event of the transaction.
+    * The following items are affected:
+      * `aws-lambda` related attributes
+      * `error.message`
+      * `error.class`
+      * `error.expected`
+      * `http.statusCode`
+      * `http.statusText`
+      * `message.*`
+      * `parent.type`
+      * `parent.app`
+      * `parent.account`
+      * `parent.transportType`
+      * `parent.transportDuration`
+      * Request Parameters `request.parameters.*`
+      * `request.header.*`
+      * `request.method`
+      * `request.uri`
+  * Custom Attributes
+    * Custom transaction attributes added via `API.addCustomAttribute` or `API.addCustomAttributes` will now be propagated to the currently active span, if available.
+  * **Security Recommendation:**
+    * Review your Transaction Event attributes configuration. Any attribute include or exclude setting specific to Transaction Events should be applied to your Span Attributes configuration or global attributes configuration. Please see [Node.js agent attributes](https://docs.newrelic.com/docs/agents/nodejs-agent/attributes/nodejs-agent-attributes#configure-attributes) for more on how to configure.
+* Upgraded @grpc/grpc-js from 1.0.3 to 1.0.4
+* Modified redis callback-less versioned test to use `commandQueueLength` as indicator redis command has completed and test can continue. This is in effort to further reduce these test flickers. Additionally, added wait for client 'ready' before moving on to tests.
+* Updated force secret test runs to run on branch pushes to the main repository.
+
+### 6.9.0 (2020-06-08):
+
+* Added AWS API Gateway V2 Support to lambda instrumentation.
+
+* Added 'transaction.name' intrinsic to active span at time transaction name is finalized.
+
+  This enables finding transaction name for traces that may not have a matching transaction event.
+
+* Added 'error.expected' attribute to span active at time expected error was noticed.
+
+* Dropped errors earlier during collection when error collection is disabled.
+
+  Error attributes will no longer show up on spans when error collection has been disabled. Other unnecessary work will also be avoided.
+
+* Removed allocation of logging-only objects used by transaction naming when those log levels are disabled.
+
+* Upgraded escodegen from 1.12.0 to 1.14.1.
+
+* Upgraded readable-stream from 3.4.0 to 3.6.0.
+
+* Upgraded @grpc/proto-loader from 0.5.3 to 0.5.4.
+
+* Converted facts unit test to use tap API.
+
+* Converted transaction 'finalizeName...' unit tests to use tap API.
+
+* Added several items to .npmignore to prevent accidental publishing.
+
+* Fixed Redis client w/o callback versioned test flicker.
+
+  Doesn't end transaction until error encountered. Increases wait time for first operation which has to complete for the second operation to be successful.
+
+### 6.8.0 (2020-05-21):
+
+* Bumped @newrelic/native-metrics to ^5.1.0.
+
+  Upgraded nan to ^2.14.1 to resolve 'GetContents' deprecation warning with Node 14. This version of the native metrics module is tested against Node 14 and includes a pre-built binary download backup for Node 14.
+
+* Added whitespace trimming of license key configuration values.
+
+  Previously, when a license key was entered with leading or trailing whitespace, it would be used as-is and result in a validation failure. This most commonly occurred with environment variable based configuration.
+
+* Moved to GitHub actions for CI.
+
+* Updated PR template and added initial issue templates.
+
+* Converted most of the collector API unit tests to use the tap API. Split larger test groupings into their own test files.
+
+### 6.7.1 (2020-05-14):
+
+* Added synthetics headers to transaction event intrinsics for DT
+
+* Fixed stale comment documentation with regards to segment recording
+
+### 6.7.0 (2020-05-06):
+
+* Added a configurable-length span queue to Infinite Tracing:
+  infinite_tracing.span_events.queue_size.
+
+  The queue length can be modified to balance the needs of keeping full traces
+  against trade-off of memory usage and CPU overhead in a high-throughput
+  application.
+
+* Fixed issue where API.instrumentLoadedModule could throw an exception when it
+  failed.
+
+  Error details will now be caught and logged.
+
+* Resolved non-proxy minimist security warnings by bumping dependencies.
+
+  These updates only impact development dependencies. Thank you to @devfreddy for
+  the contribution.
+
+  * Updated minimist sub-deps to resolve most related security warnings.
+  * Updated tap to resolve remaining tap security warnings.
+  * Updated @newrelic/proxy.
+
+* Updated remaining /api unit tests to use tap API.
+
+* Updated @grpc/grpc-js to v1.0.3.
+
+### 6.6.0 (2020-04-20):
+
+* Added support for [Infinite Tracing on New Relic
+  Edge](https://docs.newrelic.com/docs/understand-dependencies/distributed-tracing/enable-configure/enable-distributed-tracing).
+
+  Infinite Tracing observes 100% of your distributed traces and provides
+  visualizations for the most actionable data so you have the examples of errors
+  and long-running traces so you can better diagnose and troubleshoot your systems.
+
+  You configure your agent to send traces to a trace observer in New Relic Edge.
+  You view your distributed traces through the New Relic’s UI. There is no need to
+  install a collector on your network.
+
+  Infinite Tracing is currently available on a sign-up basis. If you would like to
+  participate, please contact your sales representative.
+
+* Added `function_version` to lambda metadata payload.
+
+  This is pulled from an invocation's `context.functionVersion` value.
+
+### 6.5.0 (2020-03-18):
+
+* Added error attributes to spans.
+  * The public api method `noticeError()` now attaches exception details to the currently executing
+    span. Spans with error details are now highlighted red in the Distributed Tracing UI. Also, the
+    attributes `error.class` and `error.message` are added to the span. If multiple errors are
+    recorded for a single span, only the final error's attributes will be added to the span.
+
+  * Added ID of the span in which an error occurred to the corresponding transaction error event.
+
+* Added new public API methods `addCustomSpanAttribute` and `addCustomSpanAttributes` to add
+  attributes to the currently executing span.
+
+* Added new attributes to http outbound spans: `http.statusCode` and `http.statusText`.
+
+* Updated W3C Trace Context "Known Issues and Workaround" notes with latest accurate consideration.
+
+* Converted unit tests to run via `tap`. Removes `mocha` dependency.
+
+* Fixed route naming when hapi's `pre` route handlers share functions.
+
+* Fixed `child_process` instrumentation so that handlers can be effectively removed
+  when attached via `.once()` or manually removed via `removeListener()`.
+
+### 6.4.2 (2020-02-27):
+
+* Support new http[s] get/request function signature in Node v10+
+
+* Added the following Span Event attributes:
+  - http.statusCode
+  - http.statusText
+
+  The above attributes will be replacing the following *deprecated* attributes:
+  - httpResponseCode
+  - response.status
+  - response.statusMessage
+
+  The deprecated attributes will be removed with the next major release of the Agent.
+
+* Updates version check to be in alignment with [our stated support
+  policy](https://docs.newrelic.com/docs/agents/nodejs-agent/getting-started/compatibility-requirements-nodejs-agent)
+  and the version constraints in package.json
+
+* Redacts individual certificates configuration values before sending to server
+  settings. When configured, these values will now appear like: `{certificates.0: ****}`.
+
 ### 6.4.1 (2020-02-20):
 
 * Bumped `@newrelic/aws-sdk` version to `v1.1.2` from `v1.1.1`.
@@ -70,7 +246,9 @@
 
   Known Issues and Workarounds
 
-  * If a .NET agent is initiating traces as the root service, do not upgrade your downstream Node New Relic agents to this agent release.
+  * If a .NET agent is initiating distributed traces as the root service, you must update
+    that .NET agent to version `8.24` or later before upgrading your downstream Node
+    New Relic agents to this agent release.
 
 * Pins Node 12 version to `v12.15` to avoid breakages with `v12.16.0` until cause(s)
   resolved.

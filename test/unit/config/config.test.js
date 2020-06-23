@@ -1,13 +1,22 @@
 'use strict'
 
-var path = require('path')
-var chai = require('chai')
-var should = chai.should()
-var expect = chai.expect
-var fs = require('fs')
-var sinon = require('sinon')
-var Config = require('../../../lib/config')
-var securityPolicies = require('../../lib/fixtures').securityPolicies
+const tap = require('tap')
+// TODO: convert to normal tap style.
+// Below allows use of mocha DSL with tap runner.
+tap.mochaGlobals()
+
+const path = require('path')
+const chai = require('chai')
+const should = chai.should()
+const expect = chai.expect
+const fs = require('fs')
+const sinon = require('sinon')
+const Config = require('../../../lib/config')
+const securityPolicies = require('../../lib/fixtures').securityPolicies
+
+const VALID_HOST = 'infinite-tracing.test'
+const VALID_PORT = '443'
+const VALID_QUEUE_SIZE = 10000
 
 function idempotentEnv(envConfig, initialConfig, callback) {
   let saved = {}
@@ -70,6 +79,14 @@ describe('the agent configuration', function() {
       idempotentEnv({'NEW_RELIC_LICENSE_KEY': 'hambulance'}, function(tc) {
         should.exist(tc.license_key)
         expect(tc.license_key).to.equal('hambulance')
+        expect(tc.host).to.equal('collector.newrelic.com')
+      })
+    })
+
+    it('should trim spaces from license key', function() {
+      idempotentEnv({'NEW_RELIC_LICENSE_KEY': ' license '}, function(tc) {
+        should.exist(tc.license_key)
+        expect(tc.license_key).to.equal('license')
         expect(tc.host).to.equal('collector.newrelic.com')
       })
     })
@@ -779,6 +796,18 @@ describe('the agent configuration', function() {
       expect(config.cross_application_tracer.enabled).to.be.false
     })
 
+    it('should explicitly disable infinite tracing', () => {
+      const config = Config.initialize({
+        serverless_mode: { enabled: true },
+        infinite_tracing: { trace_observer: {
+          host: VALID_HOST,
+          port: VALID_PORT
+        }}
+      })
+
+      expect(config.infinite_tracing.trace_observer.host).to.equal('')
+    })
+
     it('should pick up trusted_account_key', () => {
       idempotentEnv({
         NEW_RELIC_SERVERLESS_MODE_ENABLED: true,
@@ -1285,6 +1314,11 @@ describe('the agent configuration', function() {
         error_collector: options
       })
       expect(config.error_collector.ignore_messages).eql(options.ignore_messages)
+    })
+
+    it('should trim should trim spaces from license key', () => {
+      const config = new Config({ license_key: ' license '})
+      expect(config.license_key).equals('license')
     })
   })
 
@@ -1924,5 +1958,31 @@ describe('the agent configuration', function() {
       expect(publicSettings['certificates.0']).to.equal('****')
       expect(publicSettings['certificates.1']).to.equal('****')
     })
+  })
+})
+
+tap.test('should pick up on infinite tracing env vars', (t) => {
+  const env = {
+    NEW_RELIC_INFINITE_TRACING_TRACE_OBSERVER_HOST: VALID_HOST,
+    NEW_RELIC_INFINITE_TRACING_TRACE_OBSERVER_PORT: VALID_PORT,
+    NEW_RELIC_INFINITE_TRACING_QUEUE_SIZE: VALID_QUEUE_SIZE
+  }
+
+  idempotentEnv(env, (config) => {
+    t.equal(config.infinite_tracing.trace_observer.host, VALID_HOST)
+    t.equal(config.infinite_tracing.trace_observer.port, VALID_PORT)
+    t.equal(config.infinite_tracing.span_events.queue_size, VALID_QUEUE_SIZE)
+    t.end()
+  })
+})
+
+tap.test('should default infinite tracing port to 443', (t) => {
+  const env = {
+    NEW_RELIC_INFINITE_TRACING_TRACE_OBSERVER_HOST: VALID_HOST
+  }
+
+  idempotentEnv(env, (config) => {
+    t.equal(config.infinite_tracing.trace_observer.port, VALID_PORT)
+    t.end()
   })
 })

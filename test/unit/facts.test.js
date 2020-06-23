@@ -1,5 +1,6 @@
 'use strict'
 
+const tap = require('tap')
 const os = require('os')
 const hostname = os.hostname
 const networkInterfaces = os.networkInterfaces
@@ -51,77 +52,81 @@ const DISABLE_ALL_DETECTIONS = {
 }
 
 
-describe('fun facts about apps that New Relic is interested in include', () => {
+tap.test('fun facts about apps that New Relic is interested in include', (t) => {
+  t.autoend()
+
   let agent = null
 
-  beforeEach(() => {
+  t.beforeEach((done) => {
     agent = helper.loadMockedAgent(DISABLE_ALL_DETECTIONS)
+    done()
   })
 
-  afterEach(() => {
+  t.afterEach((done) => {
     helper.unloadAgent(agent)
     os.networkInterfaces = networkInterfaces
+    done()
   })
 
-  it("the current process ID as 'pid'", (done) => {
+  t.test("the current process ID as 'pid'", (t) => {
     facts(agent, function getFacts(factsed) {
       expect(factsed.pid).equal(process.pid)
-      done()
+      t.end()
     })
   })
 
-  it("the current hostname as 'host' (hope it's not 'localhost' lol)", (done) => {
+  t.test("the current hostname as 'host' (hope it's not 'localhost' lol)", (t) => {
     facts(agent, function getFacts(factsed) {
       expect(factsed.host).equal(hostname())
       expect(factsed.host).not.equal('localhost')
       expect(factsed.host).not.equal('localhost.local')
       expect(factsed.host).not.equal('localhost.localdomain')
-      done()
+      t.end()
     })
   })
 
-  it("the agent's language (as 'language') to be 'nodejs'", (done) => {
+  t.test("the agent's language (as 'language') to be 'nodejs'", (t) => {
     facts(agent, function getFacts(factsed) {
       expect(factsed.language).equal('nodejs')
-      done()
+      t.end()
     })
   })
 
-  it("an array of one or more application names as 'app_name' (sic)", (done) => {
+  t.test("an array of one or more application names as 'app_name' (sic)", (t) => {
     facts(agent, function getFacts(factsed) {
       expect(factsed.app_name).an('array')
       expect(factsed.app_name).length.above(0)
-      done()
+      t.end()
     })
   })
 
-  it("the module's version as 'agent_version'", (done) => {
+  t.test("the module's version as 'agent_version'", (t) => {
     facts(agent, function getFacts(factsed) {
       expect(factsed.agent_version).equal(agent.version)
-      done()
+      t.end()
     })
   })
 
-  it('the environment (see environment.test.js) as crazy nested arrays', (done) => {
+  t.test('the environment (see environment.test.js) as crazy nested arrays', (t) => {
     facts(agent, function getFacts(factsed) {
       expect(factsed.environment).to.be.an('array')
       expect(factsed.environment).to.have.length.above(1)
-      done()
+      t.end()
     })
   })
 
-  it("an 'identifier' for this agent", (done) => {
+  t.test("an 'identifier' for this agent", (t) => {
     facts(agent, function(factsed) {
       expect(factsed).to.have.property('identifier')
       const identifier = factsed.identifier
       expect(identifier).to.contain('nodejs')
       expect(identifier).to.contain(factsed.host)
       expect(identifier).to.contain(factsed.app_name.sort().join(','))
-      done()
+      t.end()
     })
   })
 
-  it("'metadata' with NEW_RELIC_METADATA_-prefixed env vars", (done) => {
+  t.test("'metadata' with NEW_RELIC_METADATA_-prefixed env vars", (t) => {
     process.env.NEW_RELIC_METADATA_STRING = 'hello'
     process.env.NEW_RELIC_METADATA_BOOL = true
     process.env.NEW_RELIC_METADATA_NUMBER = 42
@@ -135,26 +140,26 @@ describe('fun facts about apps that New Relic is interested in include', () => {
       delete process.env.NEW_RELIC_METADATA_STRING
       delete process.env.NEW_RELIC_METADATA_BOOL
       delete process.env.NEW_RELIC_METADATA_NUMBER
-      done()
+      t.end()
     })
   })
 
-  it("empty 'metadata' object if no metadata env vars found", (done) => {
+  t.test("empty 'metadata' object if no metadata env vars found", (t) => {
     facts(agent, (data) => {
       expect(data).to.have.property('metadata')
       expect(data.metadata).to.deep.equal({})
-      done()
+      t.end()
     })
   })
 
-  it('and nothing else', (done) => {
+  t.test('and nothing else', (t) => {
     facts(agent, function getFacts(factsed) {
       expect(Object.keys(factsed).sort()).eql(EXPECTED.sort())
-      done()
+      t.end()
     })
   })
 
-  it('should convert label object to expected format', (done) => {
+  t.test('should convert label object to expected format', (t) => {
     const long_key = Array(257).join('€')
     const long_value = Array(257).join('𝌆')
     agent.config.labels = {}
@@ -168,11 +173,11 @@ describe('fun facts about apps that New Relic is interested in include', () => {
       })
 
       expect(factsed.labels).deep.equal(expected)
-      done()
+      t.end()
     })
   })
 
-  it('should convert label string to expected format', (done) => {
+  t.test('should convert label string to expected format', (t) => {
     const long_key = Array(257).join('€')
     const long_value = Array(257).join('𝌆')
     agent.config.labels = 'a: b; ' + long_key + ' : ' + long_value
@@ -184,11 +189,11 @@ describe('fun facts about apps that New Relic is interested in include', () => {
       })
 
       expect(factsed.labels).deep.equal(expected)
-      done()
+      t.end()
     })
   })
 
-  it('should add harvest_limits from local or default config', (done) => {
+  t.test('should add harvest_limits from local or default config', (t) => {
     const expectedValue = 10
     agent.config.transaction_events.max_samples_stored = expectedValue
     agent.config.custom_insights_events.max_samples_stored = expectedValue
@@ -205,12 +210,14 @@ describe('fun facts about apps that New Relic is interested in include', () => {
 
     facts(agent, (factsResult) => {
       expect(factsResult.event_harvest_config).deep.equal(expectedHarvestConfig)
-      done()
+      t.end()
     })
   })
 })
 
-describe('utilization', () => {
+tap.test('utilization', (t) => {
+  t.autoend()
+
   let agent = null
   const awsInfo = require('../../lib/utilization/aws-info')
   const azureInfo = require('../../lib/utilization/azure-info')
@@ -225,8 +232,7 @@ describe('utilization', () => {
   let startingCommonRequest = null
   let startingCommonReadProc = null
 
-
-  beforeEach(() => {
+  t.beforeEach((done) => {
     startingEnv = {}
     Object.keys(process.env).forEach((key) => {
       startingEnv[key] = process.env[key]
@@ -246,9 +252,10 @@ describe('utilization', () => {
     azureInfo.clearCache()
     gcpInfo.clearCache()
     kubernetesInfo.clearCache()
+    done()
   })
 
-  afterEach(() => {
+  t.afterEach((done) => {
     if (agent) {
       helper.unloadAgent(agent)
     }
@@ -271,10 +278,11 @@ describe('utilization', () => {
     awsInfo.clearCache()
     azureInfo.clearCache()
     gcpInfo.clearCache()
+    done()
   })
 
   utilTests.forEach((test) => {
-    it(test.testname, (done) => {
+    t.test(test.testname, (t) => {
       let mockHostname = false
       let mockRam = false
       let mockProc = false
@@ -396,7 +404,7 @@ describe('utilization', () => {
       }
       facts(agent, function getFacts(factsed) {
         expect(factsed.utilization).to.deep.equal(expected)
-        done()
+        t.end()
       })
     })
   })
@@ -429,7 +437,8 @@ describe('utilization', () => {
   }
 })
 
-describe('boot_id', () => {
+tap.test('boot_id', (t) => {
+  t.autoend()
   let agent = null
   const common = require('../../lib/utilization/common')
 
@@ -439,8 +448,7 @@ describe('boot_id', () => {
   let startingCommonReadProc = null
   let startingOsPlatform = null
 
-
-  beforeEach(() => {
+  t.beforeEach((done) => {
     startingGetMemory = sysInfo._getMemoryStats
     startingGetProcessor = sysInfo._getProcessorStats
     startingDockerInfo = sysInfo._getDockerContainerId
@@ -448,9 +456,10 @@ describe('boot_id', () => {
     startingOsPlatform = os.platform
 
     os.platform = () => 'linux'
+    done()
   })
 
-  afterEach(() => {
+  t.afterEach((done) => {
     if (agent) {
       helper.unloadAgent(agent)
     }
@@ -466,10 +475,11 @@ describe('boot_id', () => {
     startingDockerInfo = null
     startingCommonReadProc = null
     startingOsPlatform = null
+    done()
   })
 
   bootIdTests.forEach((test) => {
-    it(test.testname, (done) => {
+    t.test(test.testname, (t) => {
       let mockHostname = false
       let mockRam = false
       let mockProc = false
@@ -537,7 +547,7 @@ describe('boot_id', () => {
           expect(factsed.utilization[key]).to.equal(expected[key])
         })
         checkMetrics(test.expected_metrics)
-        done()
+        t.end()
       })
     })
   })
@@ -555,34 +565,41 @@ describe('boot_id', () => {
   }
 })
 
-describe('display_host', function() {
-  let agent = null
+tap.test('display_host', {timeout: 20000}, (t) => {
+  t.autoend()
+
   const original_hostname = os.hostname
 
-  this.timeout(10000) // Environment scans can take a long time.
+  let agent = null
 
-  beforeEach(() => {
+  t.beforeEach((done) => {
     agent = helper.loadMockedAgent(DISABLE_ALL_DETECTIONS)
     agent.config.utilization = null
     os.hostname = () => {
       throw ('BROKEN')
     }
+
+    done()
   })
 
-  afterEach(() => {
+  t.afterEach((done) => {
     os.hostname = original_hostname
     helper.unloadAgent(agent)
+
+    agent = null
+
+    done()
   })
 
-  it('should be set to what the user specifies (happy path)', (done) => {
+  t.test('should be set to what the user specifies (happy path)', (t) => {
     agent.config.process_host.display_name = 'test-value'
     facts(agent, function getFacts(factsed) {
-      expect(factsed.display_host).equal('test-value')
-      done()
+      t.equal(factsed.display_host, 'test-value')
+      t.end()
     })
   })
 
-  it('should be cached along with hostname in config', (done) => {
+  t.test('should be cached along with hostname in config', (t) => {
     agent.config.process_host.display_name = 'test-value'
     facts(agent, function getFacts(factsed) {
       const displayHost1 = factsed.display_host
@@ -592,104 +609,103 @@ describe('display_host', function() {
       agent.config.process_host.display_name = 'test-value2'
 
       facts(agent, function getFacts2(factsed2) {
-        expect(factsed2.display_host).deep.equal(displayHost1)
-        expect(factsed2.host).deep.equal(host1)
+        t.deepEqual(factsed2.display_host, displayHost1)
+        t.deepEqual(factsed2.host, host1)
 
         agent.config.clearHostnameCache()
         agent.config.clearDisplayHostCache()
 
         facts(agent, function getFacts3(factsed3) {
-          expect(factsed3.display_host).deep.equal('test-value2')
-          expect(factsed3.host).deep.equal(os.hostname())
-          done()
+          t.deepEqual(factsed3.display_host, 'test-value2')
+          t.deepEqual(factsed3.host, os.hostname())
+
+          t.end()
         })
       })
     })
   })
 
-  it('should be set as os.hostname() (if available) when not specified', (done) => {
+  t.test('should be set as os.hostname() (if available) when not specified', (t) => {
     os.hostname = original_hostname
     facts(agent, function getFacts(factsed) {
-      expect(factsed.display_host).equal(os.hostname())
-      done()
+      t.equal(factsed.display_host, os.hostname())
+      t.end()
     })
   })
 
-  describe('when os.hostname() not available', () => {
-    it('should be ipv4 when ipv_preference === 4', (done) => {
-      agent.config.process_host.ipv_preference = '4'
+  t.test('should be ipv4 when ipv_preference === 4', (t) => {
+    agent.config.process_host.ipv_preference = '4'
 
-      facts(agent, function getFacts(factsed) {
-        expect(factsed.display_host).match(IP_V4_PATTERN)
-        done()
-      })
-    })
-
-    it('should be ipv6 when ipv_preference === 6', (done) => {
-      if (!agent.config.getIPAddresses().ipv6) {
-        /* eslint-disable no-console */
-        console.log('this machine does not have an ipv6 address, skipping')
-        /* eslint-enable no-console */
-        return done()
-      }
-      agent.config.process_host.ipv_preference = '6'
-
-      facts(agent, function getFacts(factsed) {
-        expect(factsed.display_host).match(IP_V6_PATTERN)
-        done()
-      })
-    })
-
-    it('should be ipv4 when invalid ipv_preference', function badIpPref(done) {
-      agent.config.process_host.ipv_preference = '9'
-
-      facts(agent, function getFacts(factsed) {
-        expect(factsed.display_host).match(IP_V4_PATTERN)
-        done()
-      })
+    facts(agent, function getFacts(factsed) {
+      t.match(factsed.display_host, IP_V4_PATTERN)
+      t.end()
     })
   })
 
-  describe('When os.networkInterfaces()', function netInterface() {
-    it('returns no ipv4, hostname should be ipv6 if possible',
-      function noip4(done) {
-        if (!agent.config.getIPAddresses().ipv6) {
-          /* eslint-disable no-console */
-          console.log('this machine does not have an ipv6 address, skipping')
-          /* eslint-enable no-console */
-          return done()
-        }
-        const mockedNI = {
-          lo: [],
-          en0: [{
-            address: 'fe80::a00:27ff:fe4e:66a1',
-            netmask: 'ffff:ffff:ffff:ffff::',
-            family: 'IPv6',
-            mac: '01:02:03:0a:0b:0c',
-            internal: false
-          }]
-        }
-        const original_NI = os.networkInterfaces
-        os.networkInterfaces = createMock(mockedNI)
 
-        facts(agent, function getFacts(factsed) {
-          expect(factsed.display_host).match(IP_V6_PATTERN)
-          os.networkInterfaces = original_NI
-          done()
-        })
-      })
-    it("returns no ip addresses, hostname should be 'UNKNOWN_BOX' (everything broke)",
-      function broken(done) {
-        const mockedNI = {lo: [], en0: []}
-        const original_NI = os.networkInterfaces
-        os.networkInterfaces = createMock(mockedNI)
+  t.test('should be ipv6 when ipv_preference === 6', (t) => {
+    if (!agent.config.getIPAddresses().ipv6) {
+      /* eslint-disable no-console */
+      console.log('this machine does not have an ipv6 address, skipping')
+      /* eslint-enable no-console */
+      return t.end()
+    }
+    agent.config.process_host.ipv_preference = '6'
 
-        facts(agent, function getFacts(factsed) {
-          os.networkInterfaces = original_NI
-          expect(factsed.display_host).equal('UNKNOWN_BOX')
-          done()
-        })
-      })
+    facts(agent, function getFacts(factsed) {
+      t.match(factsed.display_host, IP_V6_PATTERN)
+      t.end()
+    })
+  })
+
+  t.test('should be ipv4 when invalid ipv_preference', (t) => {
+    agent.config.process_host.ipv_preference = '9'
+
+    facts(agent, function getFacts(factsed) {
+      t.match(factsed.display_host, IP_V4_PATTERN)
+
+      t.end()
+    })
+  })
+
+  t.test('returns no ipv4, hostname should be ipv6 if possible', (t) => {
+    if (!agent.config.getIPAddresses().ipv6) {
+      /* eslint-disable no-console */
+      console.log('this machine does not have an ipv6 address, skipping')
+      /* eslint-enable no-console */
+      return t.end()
+    }
+    const mockedNI = {
+      lo: [],
+      en0: [{
+        address: 'fe80::a00:27ff:fe4e:66a1',
+        netmask: 'ffff:ffff:ffff:ffff::',
+        family: 'IPv6',
+        mac: '01:02:03:0a:0b:0c',
+        internal: false
+      }]
+    }
+    const original_NI = os.networkInterfaces
+    os.networkInterfaces = createMock(mockedNI)
+
+    facts(agent, function getFacts(factsed) {
+      t.match(factsed.display_host, IP_V6_PATTERN)
+      os.networkInterfaces = original_NI
+
+      t.end()
+    })
+  })
+
+  t.test('returns no ip addresses, hostname should be UNKNOWN_BOX (everything broke)', (t) => {
+    const mockedNI = {lo: [], en0: []}
+    const original_NI = os.networkInterfaces
+    os.networkInterfaces = createMock(mockedNI)
+
+    facts(agent, function getFacts(factsed) {
+      os.networkInterfaces = original_NI
+      t.equal(factsed.display_host, 'UNKNOWN_BOX')
+      t.end()
+    })
   })
 })
 

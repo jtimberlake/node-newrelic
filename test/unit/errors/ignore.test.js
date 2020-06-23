@@ -1,5 +1,9 @@
 'use strict'
 
+// TODO: convert to normal tap style.
+// Below allows use of mocha DSL with tap runner.
+require('tap').mochaGlobals()
+
 const helper = require('../../lib/agent_helper')
 const NAMES = require('../../../lib/metrics/names.js')
 const chai = require('chai')
@@ -17,6 +21,7 @@ describe('Ignored Errors', function() {
     afterEach(function() {
       helper.unloadAgent(agent)
     })
+
     it('Ignore Classes should result in no error reported', function() {
       helper.runInTransaction(agent, function(tx) {
         const errorAggr = agent.errors
@@ -26,8 +31,8 @@ describe('Ignored Errors', function() {
         const error1 = new Error('ignored')
         const error2 = new ReferenceError('NOT ignored')
 
-        tx.addException(error1, {}, 0)
-        tx.addException(error2, {}, 0)
+        errorAggr.add(tx, error1)
+        errorAggr.add(tx, error2)
         tx.end()
 
         expect(errorAggr.traceAggregator.errors.length).equals(1)
@@ -57,8 +62,8 @@ describe('Ignored Errors', function() {
         const error1 = new Error('ignored')
         const error2 = new ReferenceError('NOT ignored')
 
-        tx.addException(error1, {}, 0)
-        tx.addException(error2, {}, 0)
+        errorAggr.add(tx, error1)
+        errorAggr.add(tx, error2)
         tx.end()
 
         expect(errorAggr.traceAggregator.errors.length).equals(1)
@@ -88,9 +93,9 @@ describe('Ignored Errors', function() {
         const error2 = new Error('not ignored')
         const error3 = new ReferenceError('not ignored')
 
-        tx.addException(error1, {}, 0)
-        tx.addException(error2, {}, 0)
-        tx.addException(error3, {}, 0)
+        errorAggr.add(tx, error1)
+        errorAggr.add(tx, error2)
+        errorAggr.add(tx, error3)
 
         tx.end()
 
@@ -122,9 +127,9 @@ describe('Ignored Errors', function() {
         const error2 = new Error('not ignore')
         const error3 = new ReferenceError('not ignore')
 
-        tx.addException(error1, {}, 0)
-        tx.addException(error2, {}, 0)
-        tx.addException(error3, {}, 0)
+        errorAggr.add(tx, error1)
+        errorAggr.add(tx, error2)
+        errorAggr.add(tx, error3)
 
         tx.end()
 
@@ -156,9 +161,9 @@ describe('Ignored Errors', function() {
         const error2 = new Error('ignore me too')
         const error3 = new ReferenceError('i will also be ignored')
 
-        tx.addException(error1, {}, 0)
-        tx.addException(error2, {}, 0)
-        tx.addException(error3, {}, 0)
+        errorAggr.add(tx, error1)
+        errorAggr.add(tx, error2)
+        errorAggr.add(tx, error3)
 
         tx.end()
 
@@ -191,9 +196,9 @@ describe('Ignored Errors', function() {
         const error2 = new Error('also ignore')
         const error3 = new ReferenceError('i will also be ignored')
 
-        tx.addException(error1, {}, 0)
-        tx.addException(error2, {}, 0)
-        tx.addException(error3, {}, 0)
+        errorAggr.add(tx, error1)
+        errorAggr.add(tx, error2)
+        errorAggr.add(tx, error3)
 
         tx.end()
 

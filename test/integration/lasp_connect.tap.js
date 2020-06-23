@@ -4,11 +4,15 @@ const tap = require('tap')
 const configurator = require('../../lib/config')
 const Agent = require('../../lib/agent')
 const CollectorAPI = require('../../lib/collector/api')
+const { getTestSecret, shouldSkipTest } = require('../helpers/secrets')
 
-tap.test('connecting with a LASP token should not error', function(t) {
+
+let lasp_license = getTestSecret('LASP_LICENSE')
+let skip = shouldSkipTest(lasp_license)
+tap.test('connecting with a LASP token should not error', {skip}, (t) => {
   const config = configurator.initialize({
     app_name: 'node.js Tests',
-    license_key: '1cccc807e3eb81266a3f30d9a58cfbbe9d613049',
+    license_key: lasp_license,
     security_policies_token: 'ffff-ffff-ffff-ffff',
     host: 'staging-collector.newrelic.com',
     utilization: {
@@ -41,10 +45,12 @@ tap.test('connecting with a LASP token should not error', function(t) {
   })
 })
 
-tap.test('missing required policies should result in shutdown', function(t) {
+let lasp_secure_license = getTestSecret('LASP_SECURE_LICENSE')
+skip = shouldSkipTest(lasp_secure_license)
+tap.test('missing required policies should result in shutdown', {skip}, (t) => {
   const config = configurator.initialize({
     app_name: 'node.js Tests',
-    license_key: '20a5bbc045930ae7e15b530c8a9c6b7c5a918c4f',
+    license_key: lasp_secure_license,
     security_policies_token: 'ffff-ffff-ffff-ffff',
     host: 'staging-collector.newrelic.com',
     utilization: {

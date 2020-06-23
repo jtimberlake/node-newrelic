@@ -1,4 +1,4 @@
-{
+module.exports = {
   "env": {
     "es6": true,
     "node": true,
@@ -7,9 +7,7 @@
   "parserOptions": {
     "ecmaVersion": 6
   },
-  "plugins": [
-    "mocha-no-only"
-  ],
+  "ignorePatterns": ["invalid-json/"],
   "rules": {
     "indent": ["warn", 2, {"SwitchCase": 1}],
     "brace-style": "error",
@@ -27,7 +25,6 @@
     "max-len": ["error", 100, { "ignoreUrls": true }],
     "max-nested-callbacks": ["error", 3],
     "max-params": ["error", 5],
-    "mocha-no-only/mocha-no-only": ["error"],
     "new-cap": "error",
     "no-console": "warn",
     "no-debugger": "error",

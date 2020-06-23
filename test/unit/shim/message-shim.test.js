@@ -1,5 +1,9 @@
 'use strict'
 
+// TODO: convert to normal tap style.
+// Below allows use of mocha DSL with tap runner.
+require('tap').mochaGlobals()
+
 var API = require('../../../api')
 var chai = require('chai')
 var DESTINATIONS = require('../../../lib/config/attribute-filter').DESTINATIONS
@@ -30,7 +34,15 @@ describe('MessageShim', function() {
   })
 
   beforeEach(function() {
-    agent = helper.instrumentMockedAgent({attributes: { enabled: true }})
+    agent = helper.instrumentMockedAgent({
+      span_events: {
+        attributes: 
+        { enabled: true,
+          include: [
+            'message.parameters.*'
+          ] }
+      }
+    })
     shim = new MessageShim(agent, 'test-module')
     shim.setLibrary(shim.RABBITMQ)
     wrappable = {
@@ -874,7 +886,8 @@ describe('MessageShim', function() {
               routingKey: 'routing.key',
               properties: {
                 queue_name: 'amq.randomQueueName'
-              }
+              },
+              parameters: {a: 'a', b: 'b'}
             }
           }
         })
@@ -963,10 +976,34 @@ describe('MessageShim', function() {
 
       it('should add agent attributes (e.g. routing key)', function(done) {
         wrapped('my.queue', function consumer() {
-          var tx = shim.getSegment().transaction
-          var traceParams = tx.trace.attributes.get(DESTINATIONS.TRANS_TRACE)
+          const segment = shim.getSegment()
+          const tx = segment.transaction
+          const traceParams = tx.trace.attributes.get(DESTINATIONS.TRANS_TRACE)
+
           expect(traceParams).to.have.property('message.routingKey', 'routing.key')
           expect(traceParams).to.have.property('message.queueName', 'my.queue')
+          done()
+        })
+      })
+
+      it('should add agent attributes (e.g. routing key) to Spans', function(done) {
+        wrapped('my.queue', function consumer() {
+          const segment = shim.getSegment()
+          const spanParams = segment.attributes.get(DESTINATIONS.SPAN_EVENT)
+
+          expect(spanParams).to.have.property('message.routingKey', 'routing.key')
+          expect(spanParams).to.have.property('message.queueName', 'my.queue')
+          done()
+        })
+      })
+
+      it('should add message.paremeters.* attributes to Spans', function(done) {
+        wrapped('my.queue', function consumer() {
+          const segment = shim.getSegment()
+          const spanParams = segment.attributes.get(DESTINATIONS.SPAN_EVENT)
+
+          expect(spanParams).to.have.property('message.parameters.a', 'a')
+          expect(spanParams).to.have.property('message.parameters.b', 'b')
           done()
         })
       })

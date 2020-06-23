@@ -1,22 +1,28 @@
 'use strict'
 
-var helper = require('../../lib/agent_helper')
-var expect = require('chai').expect
 
-describe('synthetics transaction traces', function() {
-  var agent
+const tap = require('tap')
+const helper = require('../../lib/agent_helper')
 
-  beforeEach(function() {
+tap.test('synthetics transaction traces', (t) => {
+  t.autoend()
+
+  let agent
+
+  t.beforeEach((done) => {
     agent = helper.loadMockedAgent({
       trusted_account_ids: [357]
     })
+
+    done()
   })
 
-  afterEach(function() {
+  t.afterEach((done) => {
     helper.unloadAgent(agent)
+    done()
   })
 
-  it('should include synthetic intrinsics if header is set', function(done) {
+  t.test('should include synthetic intrinsics if header is set', (t) => {
     helper.runInTransaction(agent, function(txn) {
       txn.syntheticsData = {
         version: 1,
@@ -27,11 +33,12 @@ describe('synthetics transaction traces', function() {
       }
 
       txn.end()
-      var trace = txn.trace
-      expect(trace.intrinsics).to.have.property('synthetics_resource_id', 'resId')
-      expect(trace.intrinsics).to.have.property('synthetics_job_id', 'jobId')
-      expect(trace.intrinsics).to.have.property('synthetics_monitor_id', 'monId')
-      done()
+      const trace = txn.trace
+      t.equal(trace.intrinsics.synthetics_resource_id, 'resId')
+      t.equal(trace.intrinsics.synthetics_job_id, 'jobId')
+      t.equal(trace.intrinsics.synthetics_monitor_id, 'monId')
+
+      t.end()
     })
   })
 })

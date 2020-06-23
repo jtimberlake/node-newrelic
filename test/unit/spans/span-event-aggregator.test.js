@@ -1,5 +1,9 @@
 'use strict'
 
+// TODO: convert to normal tap style.
+// Below allows use of mocha DSL with tap runner.
+require('tap').mochaGlobals()
+
 const expect = require('chai').expect
 const helper = require('../../lib/agent_helper')
 const SpanEventAggregator = require('../../../lib/spans/span-event-aggregator')
@@ -19,7 +23,11 @@ describe('SpanAggregator', () => {
       runId: RUN_ID,
       limit: LIMIT
     }, {}, new Metrics(5, {}, {}))
-    agent = helper.instrumentMockedAgent()
+    agent = helper.instrumentMockedAgent({
+      distributed_tracing: {
+        enabled: true
+      }
+    })
   })
 
   afterEach(() => {

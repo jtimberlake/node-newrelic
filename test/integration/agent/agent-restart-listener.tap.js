@@ -3,12 +3,15 @@
 const tap = require('tap')
 const configurator = require('../../../lib/config')
 const Agent = require('../../../lib/agent')
+const {getTestSecret, shouldSkipTest} = require('../../helpers/secrets')
 
 
-tap.test('Collector API should connect to staging-collector.newrelic.com', (t) => {
+const license = getTestSecret('TEST_LICENSE')
+const skip = shouldSkipTest(license)
+tap.test('Collector API should connect to staging-collector.newrelic.com', {skip}, (t) => {
   const config = configurator.initialize({
     app_name: 'node.js Tests',
-    license_key: 'd67afc830dab717fd163bfcb0b8b88423e9a1a3b',
+    license_key: license,
     host: 'staging-collector.newrelic.com',
     port: 443,
     ssl: true,
@@ -38,18 +41,18 @@ tap.test('Collector API should connect to staging-collector.newrelic.com', (t) =
       const currentErroredListeners = agent.listenerCount('errored')
       const currentDisconnectedListeners = agent.listenerCount('disconnected')
       t.equal(
-        currentStoppedListeners, 
-        initialStoppedListeners, 
+        currentStoppedListeners,
+        initialStoppedListeners,
         'should not have extra stopped listeners'
       )
       t.equal(
-        currentErroredListeners, 
-        initialErroredListeners, 
+        currentErroredListeners,
+        initialErroredListeners,
         'should not have extra errored listeners'
       )
       t.equal(
-        currentDisconnectedListeners, 
-        initialDisconnectedListeners, 
+        currentDisconnectedListeners,
+        initialDisconnectedListeners,
         'should not have extra disconnected listeners'
       )
 

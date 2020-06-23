@@ -1,5 +1,9 @@
 'use strict'
 
+// TODO: convert to normal tap style.
+// Below allows use of mocha DSL with tap runner.
+require('tap').mochaGlobals()
+
 var Agent = require('../../lib/agent')
 var configurator = require('../../lib/config')
 var expect = require('chai').expect
@@ -162,7 +166,11 @@ describe('environmental sampler', function() {
 
       const gc = agent.metrics.getOrCreateMetric(NAMES.GC.PREFIX + type)
       expect(gc).property('callCount').to.be.at.least(1)
-      expect(gc).property('total').to.be.at.least(0.001) // At least 1 ms of GC
+
+      // Assuming GC to take some amount of time.
+      // With Node 12, the minimum for this work often seems to be
+      // around 0.0008 on the servers.
+      expect(gc).property('total').to.be.at.least(0.0005)
 
       const pause = agent.metrics.getOrCreateMetric(NAMES.GC.PAUSE_TIME)
       expect(pause).property('callCount').to.be.at.least(gc.callCount)

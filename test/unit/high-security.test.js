@@ -1,5 +1,9 @@
 'use strict'
 
+// TODO: convert to normal tap style.
+// Below allows use of mocha DSL with tap runner.
+require('tap').mochaGlobals()
+
 var _ = require('lodash')
 var chai   = require('chai')
 var helper = require('../lib/agent_helper')
@@ -239,9 +243,11 @@ describe('high security mode', function() {
     })
 
     it('should not affect addCustomAttribute if high_security is off', function() {
-      agent.config.high_security = false
-      var success = api.addCustomAttribute('key', 'value')
-      should.not.exist(success)
+      helper.runInTransaction(agent, () => {
+        agent.config.high_security = false
+        const success = api.addCustomAttribute('key', 'value')
+        should.not.exist(success)
+      })
     })
   })
 })

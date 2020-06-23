@@ -1,14 +1,16 @@
 'use strict'
 
-var test = require('tap').test
+const test = require('tap').test
+const {getTestSecret, shouldSkipTest} = require('../../helpers/secrets')
 
-
-test('loading the application via index.js', {timeout: 15000}, function(t) {
-  var agent = null
+const license = getTestSecret('TEST_LICENSE')
+const skip = shouldSkipTest(license)
+test('loading the application via index.js', {timeout: 15000, skip}, (t) => {
+  let agent = null
 
   process.env.NEW_RELIC_HOME = __dirname + '/..'
   process.env.NEW_RELIC_HOST = 'staging-collector.newrelic.com'
-  process.env.NEW_RELIC_LICENSE_KEY = 'd67afc830dab717fd163bfcb0b8b88423e9a1a3b'
+  process.env.NEW_RELIC_LICENSE_KEY = license
 
   t.doesNotThrow(function() {
     var api = require('../../../index.js')

@@ -1,5 +1,9 @@
 'use strict'
 
+// TODO: convert to normal tap style.
+// Below allows use of mocha DSL with tap runner.
+require('tap').mochaGlobals()
+
 const helper = require('../lib/agent_helper')
 const expect = require('chai').expect
 const headerAttributes = require('../../lib/header-attributes')
@@ -104,6 +108,35 @@ describe('header-attributes', () => {
           expect(attributes).to.not.have.property('request.headers.invalid')
           expect(attributes).to.have.property('request.headers.referer', 'valid-referer')
           expect(attributes).to.have.property('request.headers.contentType', 'valid-type')
+
+          done()
+        })
+      })
+    })
+
+    describe('with allow_all_headers set to false', () => {
+      it('should collect allowed headers as span attributes', (done) => {
+        agent.config.allow_all_headers = false
+
+        const headers = {
+          'invalid': 'header',
+          'referer': 'valid-referer',
+          'content-type': 'valid-type'
+        }
+
+        helper.runInTransaction(agent, (transaction) => {
+          headerAttributes.collectRequestHeaders(headers, transaction)
+
+          const attributes = transaction.trace.attributes.get(DESTINATIONS.TRANS_TRACE)
+          expect(attributes).to.not.have.property('request.headers.invalid')
+          expect(attributes).to.have.property('request.headers.referer', 'valid-referer')
+          expect(attributes).to.have.property('request.headers.contentType', 'valid-type')
+
+          const segment = transaction.agent.tracer.getSegment()
+          const spanAttributes = segment.attributes.get(DESTINATIONS.SPAN_EVENT)
+
+          expect(spanAttributes).to.have.property('request.headers.referer', 'valid-referer')
+          expect(spanAttributes).to.have.property('request.headers.contentType', 'valid-type')
           done()
         })
       })
